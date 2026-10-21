@@ -33,6 +33,8 @@ def resolve_data_dir(base_dir: Path) -> Path:
 
 
 class Store:
+    temporary = False  # True when the data would vanish on the next restart
+
     def __init__(self, path: Path):
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -251,4 +253,7 @@ def open_store(base_dir: Path) -> Store:
     url = os.environ.get("DATABASE_URL", "").strip()
     if url:
         return PostgresStore(url, cache_path=path)
-    return Store(path)
+    store = Store(path)
+    # Render wipes the server's disk on every restart; only a database or a mounted disk survives.
+    store.temporary = bool(os.environ.get("RENDER")) and path.parent != Path("/data") and not os.environ.get("DATA_DIR")
+    return store

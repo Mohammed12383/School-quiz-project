@@ -5,7 +5,7 @@ import json
 import pytest
 
 from app import auth
-from app.store import Store, resolve_data_dir
+from app.store import Store, open_store, resolve_data_dir
 from app.util import GameError, clean_text, has_letters, to_int
 
 
@@ -102,6 +102,16 @@ def test_data_dir_resolution(tmp_path, monkeypatch):
 
 
 # ------------------------------------------------------------------- util
+def test_render_without_database_is_flagged(tmp_path, monkeypatch):
+    """The teacher is warned when the data would be wiped on the next restart."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    monkeypatch.setenv("RENDER", "true")
+    assert open_store(tmp_path).temporary
+    monkeypatch.delenv("RENDER")
+    assert not open_store(tmp_path).temporary
+
+
 def test_clean_text():
     assert clean_text("  أحمد \t  علي  ", 30) == "أحمد علي"
     assert clean_text("abc‮def​", 30) == "abcdef"  # bidi override & zero-width removed

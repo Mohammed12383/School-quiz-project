@@ -2296,6 +2296,7 @@ class Game:
             "settings": dict(self.settings),
             "stats": self.stats_summary(),
             "password": password_info,
+            "storage": {"temporary": self.store.temporary},
             "limits": {"minTime": MIN_TIME, "maxTime": MAX_TIME, "defaultTime": DEFAULT_TIME,
                        "maxQuestions": MAX_QUESTIONS, "maxWrong": MAX_WRONG},
             "fields": FIELDS,

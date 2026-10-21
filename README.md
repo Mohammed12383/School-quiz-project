@@ -236,6 +236,12 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 3. سيطلب منك Render قيمة **`ADMIN_PASSWORD`**: اكتب كلمة مرور قوية للمعلم.
 4. بعد اكتمال النشر ستحصل على رابط مثل `https://difaf-alarabiya.onrender.com`. يظهر رمز QR على شاشة العرض بهذا الرابط تلقائيًا.
 
+**إن أنشأت الموقع وقاعدة البيانات كلًّا على حدة** (لا عبر Blueprint)، فاربطهما مرة واحدة:
+1. Render ← قاعدة البيانات `difaf-db` ← **Connect** ← انسخ **Internal Database URL**.
+2. Render ← الخدمة `difaf-alarabiya` ← **Environment** ← **Add Environment Variable**: المفتاح `DATABASE_URL` والقيمة الرابط المنسوخ ← **Save**.
+
+ما دام الموقع على Render بلا قاعدة بيانات، تُظهر لوحة التحكم تنبيهًا أصفر بذلك.
+
 **لتغيير كلمة مرور المعلم لاحقًا:** Render ← الخدمة `difaf-alarabiya` ← **Environment** ← عدّل `ADMIN_PASSWORD` ← **Save** (يُعاد تشغيل الموقع خلال دقيقة، والبيانات محفوظة).
 
 **تنبيهات الخطة المجانية:**

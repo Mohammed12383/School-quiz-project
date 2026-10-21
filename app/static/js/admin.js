@@ -86,6 +86,7 @@
   function showShell() {
     $("#login").hidden = true;
     $("#shell").hidden = false;
+    if (data) renderBanner(); // admin:data usually arrives before the login reply
     selectTab(tab);
   }
 
@@ -118,7 +119,11 @@
   }
   function renderBanner() {
     const b = $("#banner");
-    if (data.password && data.password.isDefault) {
+    if (data.storage && data.storage.temporary) {
+      render(b, "تنبيه مهم: الموقع على Render بلا قاعدة بيانات، فكل ما تضيفه سيُمسح عند إعادة تشغيل الخادم أو نومه. "
+        + "أضف المتغير DATABASE_URL في إعدادات الخدمة على Render (انظر ملف README، قسم النشر) قبل إدخال الأسئلة.");
+      b.hidden = false;
+    } else if (data.password && data.password.isDefault) {
       render(b, "تنبيه: ما زالت كلمة المرور الافتراضية (admin123) مستخدمة. غيّرها من ",
         h("a", { href: "#", text: "الإعدادات", onclick: (e) => { e.preventDefault(); selectTab("settings"); } }),
         " حتى لا يتمكن أحد الطلاب من الدخول إلى لوحة التحكم.");
