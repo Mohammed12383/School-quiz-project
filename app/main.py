@@ -25,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .auth import DEFAULT_PASSWORD, AdminAuth, current_password
 from .game import Game
-from .store import Store, resolve_data_dir
+from .store import open_store
 from .util import GameError, as_dict, lan_ips
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -37,7 +37,7 @@ STATIC_DIR = APP_DIR / "static"
 PAGES_DIR = APP_DIR / "pages"
 TICK = 0.1
 
-store = Store(resolve_data_dir(BASE_DIR) / "db.json")
+store = open_store(BASE_DIR)
 game = Game(store)
 auth = AdminAuth()
 
@@ -278,7 +278,7 @@ def print_banner() -> None:
         lines.append(f"  Students (Wi-Fi) : http://{ip}:{port}/play")
     lines += [f"  Display screen   : http://localhost:{port}/display",
               f"  Admin panel      : http://localhost:{port}/admin",
-              f"  Data file        : {store.path}", "=" * 60, ""]
+              f"  Data             : {store.path}", "=" * 60, ""]
     print("\n".join(lines), flush=True)
 
 
@@ -290,7 +290,7 @@ async def lifespan(_app: FastAPI):
         yield
     finally:
         task.cancel()
-        store.save_now()
+        store.close()
 
 
 api = FastAPI(title="Difaf Al-Arabiya", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)

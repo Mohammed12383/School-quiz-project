@@ -46,7 +46,7 @@ def test_landing_flow_and_logo_text(server):
             await page.wait_for_selector("#home:not([hidden])")
             assert "logo-full-light" in await page.get_attribute(".hero-logo", "src")
             await page.evaluate("window.scrollTo(0, 600)")
-            await page.wait_for_function("document.querySelector('#nav').classList.contains('scrolled')")
+            await page.wait_for_selector("#nav.scrolled")  # wait_for_function would need eval, which the CSP blocks
             await page.goto(server.url + "/about")
             await page.wait_for_selector(".about-hero img")
             await b.close()

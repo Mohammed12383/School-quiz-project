@@ -3,3 +3,4 @@ uvicorn[standard]==0.54.0
 python-socketio==5.17.0
 python-engineio==4.14.0
 qrcode==8.2
+psycopg[binary]==3.3.6

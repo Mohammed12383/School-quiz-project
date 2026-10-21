@@ -3,6 +3,7 @@ services:
     name: difaf-alarabiya
     runtime: python
     plan: free
+    region: frankfurt
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"
     healthCheckPath: /healthz
@@ -11,9 +12,14 @@ services:
         value: 3.12.7
       - key: ADMIN_PASSWORD
         sync: false   # Render asks you to type the admin password when you create the service
-    # A persistent disk keeps the data across restarts, but it needs a paid plan.
-    # Remove "plan: free" above and uncomment these lines; the app uses /data automatically.
-    # disk:
-    #   name: difaf-data
-    #   mountPath: /data
-    #   sizeGB: 1
+      # The free plan wipes the server's disk when it sleeps, so the data lives in Postgres.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: difaf-db
+          property: connectionString
+
+databases:
+  - name: difaf-db
+    plan: free   # free Postgres databases expire after 30 days; upgrade it to keep the data
+    region: frankfurt
+    postgresMajorVersion: "16"
