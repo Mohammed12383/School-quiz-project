@@ -100,6 +100,7 @@
     let mode = s.mode;
     if (localAuto && mode === "idle") mode = "auto";
     if (mode === "idle") return ["idle", ""];
+    if (mode === "message") return ["message", s.message || ""];
     if (mode === "join") return L && L.phase === "lobby" ? ["lobby", L.matchId] : ["join", ""];
     if (mode === "leaderboard") return ["leaders", ""];
     if (mode === "bracket") return t ? [t.type === "separate" ? "contests" : "bracket", t.id] : ["idle", ""];
@@ -114,8 +115,22 @@
     return ["idle", ""];
   }
 
+  function applySite(s) {
+    const site = s.site || {};
+    $("#dProgram").textContent = site.programName || "ضفاف العربية";
+    $("#dSchool").textContent = site.schoolName || "";
+    const ann = (site.announcement || "").replace(/\s+/g, " ").trim();
+    const ticker = $("#ticker");
+    if (ann && $("#tickerText").textContent !== ann) {
+      $("#tickerText").textContent = ann;
+      $(".ticker-in").style.animationDuration = Math.max(16, ann.length * 0.32) + "s";
+    }
+    ticker.hidden = !ann;
+  }
+
   function paint() {
     if (!st) return;
+    applySite(st);
     const [name, key] = decide(st);
     const L = st.live, t = st.tournament;
     render($("#dTitle"),
@@ -138,17 +153,26 @@
   const SCREENS = {};
 
   SCREENS.idle = {
-    mount() {
+    mount(s) {
+      const site = s.site || {};
       return h("section", { class: "scr" }, h("div", { class: "idle" },
         h("div", { class: "idle-brand" },
-          h("img", { src: "/static/img/logo-mark-light.png", alt: "شعار المدرسة" }),
-          h("h1", { text: "ضفاف العربية" }),
-          h("p", { text: "مسابقات اللغة العربية بين الفصول" }),
-          h("div", { class: "idle-verse" }, "أنا البحرُ في أحشائه الدرُّ كامنٌ", h("br"), "فهل سألوا الغوّاصَ عن صدَفاتي", h("small", { text: "حافظ إبراهيم" }))),
+          h("img", { src: "/static/img/logo-full-light.png", alt: "شعار مدرسة يزيد بن حاتم الأزدي" }),
+          h("h1", { text: site.programName || "ضفاف العربية" }),
+          h("p", { text: site.tagline || "" }),
+          site.verse ? h("div", { class: "idle-verse" }, h("span", { text: site.verse }), h("small", { text: site.poet || "" })) : null),
         joinCard(true)));
     },
   };
   SCREENS.join = SCREENS.idle;
+
+  SCREENS.message = {
+    mount(s) {
+      return h("section", { class: "scr" }, h("div", { class: "message-scr" },
+        h("img", { src: "/static/img/logo-full-light.png", alt: "" }),
+        h("div", { class: "message-card" }, h("p", { text: s.message || "" }))));
+    },
+  };
 
   SCREENS.lobby = {
     mount(s, refs) {
@@ -217,13 +241,14 @@
         const opts = q.options.map((text, i) => {
           const fill = h("i", { class: "fill" });
           const cnt = h("span", { class: "cnt num" });
-          const el = h("div", { class: "dopt" }, fill, h("span", { class: "letter", text: LETTERS[i] || i + 1 }), h("span", { class: "t", text }), cnt);
+          const el = h("div", { class: "dopt", style: { animationDelay: (0.25 + i * 0.12) + "s" } }, fill, h("span", { class: "letter", text: LETTERS[i] || i + 1 }), h("span", { class: "t", text }), cnt);
           return { el, fill, cnt };
         });
         const box = h("div", { class: "dopts" }, opts.map((o) => o.el));
         refs.panels[sd.side] = { rg, answered, expected, opts, box, q, done: false };
         return h("div", { class: "panel side-" + sd.side },
           h("div", { class: "panel-head" }, teamBadge(sd.name), rg.el,
+            q.field ? h("span", { class: "field-chip", text: q.field }) : null,
             h("span", { class: "answered" }, "أجاب ", answered, " من ", expected)),
           h("p", { class: "qtext" + (q.text.length > 110 ? " long" : ""), text: q.text }),
           box);
@@ -243,6 +268,10 @@
         if (!p) continue;
         p.answered.textContent = sd.answered || 0;
         p.expected.textContent = sd.expected || 0;
+      }
+      if (L.phase === "question" && L.timeUp && !refs.timeUp) {
+        refs.timeUp = true;
+        refs.phaseLabel.textContent = "انتهى الوقت!";
       }
       if (L.phase === refs.phase) return;
       refs.phase = L.phase;
@@ -458,8 +487,8 @@
       await sleep(1000);
     }
     render(overlay, h("div", { class: "rays" }), h("div", { class: "launch" },
-      h("img", { src: "/static/img/logo-mark-light.png", alt: "" }),
-      h("h1", { text: "ضفاف العربية" }),
+      h("img", { src: "/static/img/logo-full-light.png", alt: "" }),
+      h("h1", { text: (st && st.site && st.site.programName) || "ضفاف العربية" }),
       h("p", { text: "انطلقت المنافسات!" })));
     Sound.fanfare();
     D.confetti({ count: 260, duration: 5000 });

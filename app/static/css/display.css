@@ -41,10 +41,10 @@ html:has(body.display) { font-size: clamp(13px, 1.04vw, 30px); }
 /* ---------- idle / join */
 .idle { flex: 1; display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 3rem; padding: 0 2rem 4rem; }
 .idle-brand { text-align: center; display: grid; justify-items: center; gap: .3rem; }
-.idle-brand img { width: 24rem; height: auto; filter: drop-shadow(0 1.5rem 2rem rgba(0, 0, 0, .45)); animation: float 6s ease-in-out infinite; }
+.idle-brand img { width: 21rem; height: auto; filter: drop-shadow(0 1.5rem 2rem rgba(0, 0, 0, .45)); animation: float 6s ease-in-out infinite; }
 .idle-brand h1 { font-size: 5.2rem; font-weight: 900; margin: .2rem 0 0; line-height: 1.1; background: linear-gradient(180deg, #fff 30%, var(--gold-300)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .idle-brand p { margin: 0; font-size: 1.5rem; color: var(--gold-200); font-weight: 700; }
-.idle-verse { margin-top: 1rem; font-size: 1.45rem; font-weight: 700; line-height: 1.9; color: #fff; opacity: .92; }
+.idle-verse { margin-top: 1rem; font-size: 1.45rem; font-weight: 700; line-height: 1.9; color: #fff; opacity: .92; white-space: pre-line; }
 .idle-verse small { display: block; color: var(--gold-300); font-size: 1rem; }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-.8rem); } }
 
@@ -227,3 +227,26 @@ html:has(body.display) { font-size: clamp(13px, 1.04vw, 30px); }
   .bracket { grid-auto-flow: row; }
   .count-num, .d-overlay .big { font-size: 9rem; }
 }
+
+/* ---------- additions: message, ticker, field chip, entrance animations */
+.message-scr { flex: 1; display: grid; place-items: center; align-content: center; gap: 2rem; text-align: center; padding-bottom: 4rem; }
+.message-scr img { width: 13rem; height: auto; animation: float 6s ease-in-out infinite; }
+.message-card { max-width: 75vw; padding: 2.4rem 3.2rem; border-radius: 2rem; background: var(--paper); color: var(--navy-900); box-shadow: var(--shadow-lg); border-top: .5rem solid var(--gold-500); animation: msg-in .7s cubic-bezier(.2, 1.2, .3, 1) both; }
+.message-card p { margin: 0; font-size: 3.2rem; font-weight: 900; line-height: 1.6; white-space: pre-line; }
+@keyframes msg-in { from { opacity: 0; transform: scale(.85) translateY(2rem); } }
+.ticker { position: fixed; z-index: 4; left: 0; right: 0; bottom: 0; height: 2.6rem; overflow: hidden; background: rgba(11, 18, 49, .92); border-top: 2px solid var(--gold-500); display: flex; align-items: center; }
+.ticker-in { white-space: nowrap; padding-inline-start: 100%; animation: ticker 30s linear infinite; font-size: 1.3rem; font-weight: 800; color: var(--gold-100); }
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(100%); } }
+.display:has(.ticker:not([hidden])) .d-stage { padding-bottom: 3.4rem; }
+.field-chip { padding: .1rem .9rem; border-radius: 999px; background: var(--gold-100); color: var(--gold-700); font-weight: 900; font-size: 1.05rem; border: 1px solid var(--gold-300); }
+.panel { animation: panel-in .6s cubic-bezier(.2, .9, .3, 1) both; }
+.panel.side-B { animation-delay: .08s; }
+@keyframes panel-in { from { opacity: 0; transform: translateY(2rem) scale(.97); } }
+.panel .qtext { animation: q-in .7s .1s ease-out both; }
+@keyframes q-in { from { opacity: 0; transform: scale(.94); filter: blur(4px); } }
+.dopt { animation: opt-in .5s cubic-bezier(.2, 1.3, .4, 1) both; }
+@keyframes opt-in { from { opacity: 0; transform: translateY(1rem) scale(.95); } }
+.revealed .dopt.correct { animation: correct-pulse 1.2s ease-out 1; }
+@keyframes correct-pulse { 0% { transform: scale(1); } 30% { transform: scale(1.04); } 100% { transform: scale(1); } }
+.lrow { animation-delay: calc(var(--i, 0) * 70ms); }
+.ccard { animation: scr-in .5s ease-out both; }

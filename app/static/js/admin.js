@@ -9,6 +9,7 @@
   let token = store.get(TOKEN_KEY);
   let data = null;
   let live = null;
+  let players = [];
   let loggedIn = false;
   let tab = store.get("difaf:adminTab") || "classes";
 
@@ -44,6 +45,7 @@
   });
   socket.on("admin:data", (d) => { data = d; if (loggedIn) onData(); });
   socket.on("admin:live", (l) => { live = l; if (loggedIn) onLive(); });
+  socket.on("admin:players", (p) => { players = (p && p.players) || []; if (loggedIn && tab === "students") renderStudents(); });
   socket.on("admin:loggedOut", (p) => { logoutLocal(); showLogin(p && p.reason); });
 
   function logoutLocal() { loggedIn = false; token = null; store.del(TOKEN_KEY); }
@@ -98,7 +100,7 @@
   }
   function renderTab() {
     if (!data) return;
-    ({ classes: renderClasses, league: renderLeague, live: renderLive, stats: renderStats, settings: renderSettings })[tab]();
+    ({ classes: renderClasses, students: renderStudents, league: renderLeague, live: renderLive, stats: renderStats, settings: renderSettings }[tab] || renderClasses)();
   }
 
   function onData() {
@@ -106,6 +108,10 @@
     if (tab === "live") scheduleLive(); else renderTab();
   }
   function onLive() {
+    if (tab === "students") {
+      const sig = (live.onlineIds || []).slice().sort().join(",");
+      if (sig !== stu.onlineSig) { stu.onlineSig = sig; scheduleStudents(); }
+    }
     $("#stOnline").textContent = (live.onlineTotal || 0) + " طالب متصل";
     $("#stDisplay").textContent = live.displays ? "الشاشة متصلة (" + live.displays + ")" : "لا شاشة";
     if (tab === "live") scheduleLive();
@@ -128,17 +134,43 @@
     return Object.keys(g).map(Number).sort((a, b) => a - b).map((k) => [k, g[k]]);
   }
 
+  async function downloadCsv(kind, extra) {
+    try {
+      const r = await fetch("/api/admin/export/" + kind + ".csv" + (extra || ""), { headers: { "X-Admin-Token": token || "" }, cache: "no-store" });
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const name = (r.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/);
+      const url = URL.createObjectURL(blob);
+      const a = h("a", { href: url, download: name ? name[1] : "difaf-" + kind + ".csv" });
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      toast("تم تنزيل الملف (يفتح في Excel)", "ok");
+    } catch (e) { toast("تعذّر تنزيل الملف", "bad"); }
+  }
+  const fieldOptions = (value) => [h("option", { value: "", text: "— بدون مجال —" }),
+    ...Object.entries(data.fields || {}).map(([k, v]) => { const o = h("option", { value: k, text: v }); if (k === value) o.selected = true; return o; })];
+
   function modal(title, body, buttons) {
     const back = h("div", { class: "modal-back" });
-    const close = () => back.remove();
+    const prev = document.activeElement;
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    const close = () => {
+      back.remove();
+      document.removeEventListener("keydown", onKey);
+      if (prev && prev.focus && document.contains(prev)) prev.focus();
+    };
     back.addEventListener("click", (e) => { if (e.target === back) close(); });
-    back.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
-    render(back, h("div", { class: "card modal stack", role: "dialog", "aria-modal": "true" },
+    document.addEventListener("keydown", onKey);
+    const dialog = h("div", { class: "card modal stack", role: "dialog", "aria-modal": "true", "aria-label": title, tabindex: "-1" },
       h("h3", { text: title }), body,
       h("div", { class: "row", style: { justifyContent: "flex-end" } },
         h("button", { class: "btn btn-light", type: "button", text: "إغلاق", onclick: close }),
-        (buttons || []).map((b) => h("button", { class: "btn " + (b.cls || ""), type: "button", text: b.text, onclick: () => b.onclick(close) })))));
+        (buttons || []).map((b) => h("button", { class: "btn " + (b.cls || ""), type: "button", text: b.text, onclick: () => b.onclick(close) }))));
+    render(back, dialog);
     document.body.appendChild(back);
+    (dialog.querySelector("input:not([type=checkbox]), textarea, select") || dialog).focus();
     return close;
   }
 
@@ -215,14 +247,14 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function blankQuestion() { return { id: null, text: "", correct: "", wrong: ["", "", ""], time: lim().defaultTime }; }
+  function blankQuestion() { return { id: null, text: "", correct: "", wrong: ["", "", ""], time: lim().defaultTime, field: "" }; }
   function loadDraft() {
     const c = classById(selId);
     if (!c) { draft = null; return; }
     draft = {
       classId: c.id,
       base: JSON.stringify(c.questions),
-      questions: c.questions.map((q) => ({ id: q.id, text: q.text, correct: q.correct, wrong: [...q.wrong, "", "", ""].slice(0, 3), time: q.time })),
+      questions: c.questions.map((q) => ({ id: q.id, text: q.text, correct: q.correct, wrong: [...q.wrong, "", "", ""].slice(0, 3), time: q.time, field: q.field || "" })),
     };
   }
 
@@ -236,14 +268,17 @@
     const L = lim();
     const countInput = h("input", { class: "input", type: "number", min: 0, max: L.maxQuestions, value: draft.questions.length });
     const timeAll = h("input", { class: "input", type: "number", min: L.minTime, max: L.maxTime, value: L.defaultTime });
+    const fieldAll = h("select", { class: "input" }, fieldOptions(""));
     render(ed, h("div", { class: "panel-card" },
       h("div", { class: "editor-head" },
         h("span", { class: "title" }, "أسئلة فصل ", h("span", { class: "num", text: c.name })),
         h("span", { class: "chip navy", text: c.questions.length + " سؤالًا محفوظًا" }),
         h("div", { class: "row", style: { marginInlineStart: "auto" } },
+          h("button", { class: "btn btn-light btn-sm", type: "button", text: "تعديل الفصل", onclick: editClassModal }),
           h("button", { class: "btn btn-light btn-sm", type: "button", text: "أسئلة تجريبية", onclick: addSamples }),
           h("button", { class: "btn btn-light btn-sm", type: "button", text: "استيراد من نص", onclick: importText }),
           h("button", { class: "btn btn-light btn-sm", type: "button", text: "نسخ إلى فصول أخرى", onclick: copyModal }),
+          h("button", { class: "btn btn-light btn-sm", type: "button", text: "تصدير (Excel)", onclick: () => downloadCsv("questions", "?classId=" + encodeURIComponent(selId)) }),
           h("button", { class: "btn btn-bad btn-sm", type: "button", text: "حذف الفصل", onclick: deleteClass }))),
       h("div", { class: "editor-tools" },
         h("label", { class: "field" }, h("span", { text: "عدد الأسئلة" }), countInput),
@@ -253,6 +288,13 @@
         h("button", { class: "btn btn-light btn-sm", type: "button", text: "تطبيق الزمن على الكل", onclick: () => {
           const t = Math.max(L.minTime, Math.min(L.maxTime, +timeAll.value || L.defaultTime));
           draft.questions.forEach((q) => { q.time = t; });
+          setDirty(true);
+          renderEditor();
+        } }),
+        h("span", { class: "sep" }),
+        h("label", { class: "field" }, h("span", { text: "مجال كل الأسئلة" }), fieldAll),
+        h("button", { class: "btn btn-light btn-sm", type: "button", text: "تطبيق المجال على الكل", onclick: () => {
+          draft.questions.forEach((q) => { q.field = fieldAll.value; });
           setDirty(true);
           renderEditor();
         } })),
@@ -282,6 +324,8 @@
     });
     const time = h("input", { class: "input", type: "number", min: lim().minTime, max: lim().maxTime, value: q.time });
     time.addEventListener("input", () => { q.time = time.value; mark(); });
+    const field = h("select", { class: "input" }, fieldOptions(q.field));
+    field.addEventListener("change", () => { q.field = field.value; mark(); });
     return h("div", { class: "qcard", id: "q-" + i },
       h("div", { class: "qcard-head" },
         h("span", { class: "qnum num", text: i + 1 }),
@@ -289,12 +333,39 @@
         h("div", { class: "tools" },
           h("button", { class: "icon-btn", type: "button", title: "تحريك لأعلى", "aria-label": "تحريك لأعلى", text: "↑", disabled: i === 0, onclick: () => move(i, -1) }),
           h("button", { class: "icon-btn", type: "button", title: "تحريك لأسفل", "aria-label": "تحريك لأسفل", text: "↓", disabled: i === n - 1, onclick: () => move(i, 1) }),
+          h("button", { class: "icon-btn", type: "button", title: "تكرار السؤال", "aria-label": "تكرار السؤال", text: "⧉", onclick: () => duplicateQ(i) }),
           h("button", { class: "icon-btn danger", type: "button", title: "حذف السؤال", "aria-label": "حذف السؤال", text: "✕", onclick: () => removeQ(i) }))),
       h("label", { class: "field" }, h("span", { text: "نص السؤال" }), text),
       h("div", { class: "qgrid" },
         h("label", { class: "field full" }, h("span", { text: "الإجابة الصحيحة" }), cor),
         wrongs,
-        h("label", { class: "field qtime" }, h("span", { text: "الزمن (ثانية)" }), time)));
+        h("label", { class: "field qtime" }, h("span", { text: "الزمن (ثانية)" }), time),
+        h("label", { class: "field" }, h("span", { text: "المجال" }), field)));
+  }
+
+  function duplicateQ(i) {
+    const q = draft.questions[i];
+    draft.questions.splice(i + 1, 0, { ...q, id: null, wrong: [...q.wrong] });
+    setDirty(true);
+    renderEditor();
+    const el = $("#q-" + (i + 1));
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function editClassModal() {
+    const c = classById(selId);
+    if (!c) return;
+    const grade = h("select", { class: "input" }, Object.entries(GRADES).map(([g, n]) => h("option", { value: g, text: "الصف " + n })));
+    grade.value = String(c.grade);
+    const section = h("input", { class: "input", type: "number", min: 1, max: 30, value: c.section });
+    modal("تعديل الفصل " + c.name, h("div", { class: "stack" },
+      h("label", { class: "field" }, h("span", { text: "الصف" }), grade),
+      h("label", { class: "field" }, h("span", { text: "رقم الشعبة" }), section),
+      h("p", { class: "hint", text: "يبقى بنك الأسئلة والطلاب والنتائج كما هي؛ يتغير اسم الفصل فقط في كل مكان." })),
+    [{ text: "حفظ", cls: "btn-gold", onclick: async (close) => {
+      const r = await act("class:update", { classId: c.id, grade: +grade.value, section: +section.value }, "تم تعديل الفصل");
+      if (r) close();
+    } }]);
   }
 
   const isEmptyQ = (q) => !q.text.trim() && !q.correct.trim() && !q.wrong.some((w) => w.trim());
@@ -371,7 +442,7 @@
       return;
     }
     const questions = draft.questions.map((q) => ({
-      id: q.id || undefined, text: q.text, correct: q.correct,
+      id: q.id || undefined, text: q.text, correct: q.correct, field: q.field || "",
       wrong: q.wrong.map((w) => w.trim()).filter(Boolean), time: Number(q.time),
     }));
     const r = await act("class:saveQuestions", { classId: draft.classId, questions });
@@ -453,6 +524,104 @@
       toast("أُضيف " + added + " سؤالًا إلى القائمة. لا تنسَ الحفظ." + (bad ? "\nتم تجاهل " + bad + " مجموعة غير مكتملة." : ""), bad ? "warn" : "ok", 6000);
     } }]);
     setTimeout(() => ta.focus(), 50);
+  }
+
+  /* ================================================================ students */
+  const stu = { q: "", cls: "", sel: new Set(), onlineSig: "" };
+  function scheduleStudents() {
+    if (pointerDown) { setTimeout(scheduleStudents, 150); return; }
+    if ($("#stuTable")) renderStudentRows();
+  }
+
+  function renderStudents() {
+    const root = $("#tab-students");
+    if (!data) return;
+    if (!root.firstChild) {
+      const search = h("input", { class: "input", type: "search", placeholder: "اكتب جزءًا من الاسم…" });
+      search.addEventListener("input", () => { stu.q = search.value.trim(); renderStudentRows(); });
+      const cls = h("select", { class: "input", id: "stuClass" });
+      cls.addEventListener("change", () => { stu.cls = cls.value; renderStudentRows(); });
+      render(root, h("div", { class: "stack" },
+        h("div", { class: "sec-head" },
+          h("h2", {}, "الطلاب المسجّلون ", h("span", { id: "stuCount", class: "chip navy" })),
+          h("div", { class: "row" },
+            h("button", { class: "btn btn-light btn-sm", type: "button", text: "تصدير القائمة (Excel)", onclick: () => downloadCsv("players") }),
+            h("button", { class: "btn btn-warn btn-sm", type: "button", text: "حذف غير المتصلين", onclick: async () => {
+              const where = stu.cls ? " من فصل " + (classById(stu.cls) || {}).name : "";
+              if (await confirmBox("حذف جميع الطلاب غير المتصلين الآن" + where + "؟ سيسجّلون من جديد عند دخولهم.", { ok: "حذف", danger: true }))
+                act("admin:playersClear", { offlineOnly: true, classId: stu.cls || undefined }).then((r) => r && toast("حُذف " + r.count + " طالبًا", "ok"));
+            } }),
+            h("button", { class: "btn btn-bad btn-sm", type: "button", text: "حذف جميع الطلاب", onclick: async () => {
+              const ok = await confirmBox("سيُسجَّل خروج جميع الطلاب ويُحذفون من القائمة (تبقى الإحصائيات). مناسب لبداية يوم جديد.", { title: "حذف جميع الطلاب", ok: "حذف الجميع", danger: true, typeToConfirm: "حذف الطلاب" });
+              if (ok) act("admin:playersClear", {}).then((r) => r && toast("حُذف " + r.count + " طالبًا", "ok"));
+            } }))),
+        h("div", { class: "panel-card stack" },
+          h("div", { class: "row", style: { alignItems: "end" } },
+            h("label", { class: "field grow" }, h("span", { text: "بحث" }), search),
+            h("label", { class: "field" }, h("span", { text: "الفصل" }), cls),
+            h("button", { class: "btn btn-bad btn-sm", type: "button", text: "حذف المحدد", onclick: async () => {
+              if (!stu.sel.size) { toast("حدّد طالبًا واحدًا على الأقل", "warn"); return; }
+              if (await confirmBox("حذف " + stu.sel.size + " من الطلاب المحددين؟", { ok: "حذف", danger: true }))
+                act("admin:playerDelete", { playerIds: [...stu.sel] }, "تم الحذف").then((r) => { if (r) stu.sel.clear(); });
+            } })),
+          h("p", { class: "hint", text: "يمكنك تصحيح اسم الطالب، أو نقله إلى فصله الصحيح، أو حذفه (يُسجَّل خروجه ويمكنه الدخول من جديد). النقطة الخضراء = متصل الآن." }),
+          h("div", { id: "stuTable" }))));
+    }
+    const sel = $("#stuClass");
+    render(sel, h("option", { value: "", text: "كل الفصول" }), data.classes.map((c) => h("option", { value: c.id, text: c.name })));
+    sel.value = data.classes.some((c) => c.id === stu.cls) ? stu.cls : "";
+    stu.cls = sel.value;
+    renderStudentRows();
+  }
+
+  function renderStudentRows() {
+    const online = new Set((live && live.onlineIds) || []);
+    let rows = players;
+    if (stu.cls) rows = rows.filter((p) => p.classId === stu.cls);
+    if (stu.q) rows = rows.filter((p) => p.name.includes(stu.q));
+    for (const id of [...stu.sel]) if (!players.some((p) => p.id === id)) stu.sel.delete(id);
+    $("#stuCount").textContent = players.length + " طالب · " + online.size + " متصل";
+    const all = h("input", { type: "checkbox", "aria-label": "تحديد الكل" });
+    all.checked = rows.length > 0 && rows.every((p) => stu.sel.has(p.id));
+    all.addEventListener("change", () => { rows.forEach((p) => (all.checked ? stu.sel.add(p.id) : stu.sel.delete(p.id))); renderStudentRows(); });
+    render($("#stuTable"), rows.length ? h("div", { class: "table-wrap" }, h("table", { class: "table" },
+      h("thead", {}, h("tr", {}, h("th", {}, all), ["", "الطالب", "الفصل", "الإجابات", "الصحيحة", "التسجيل", "إجراءات"].map((x) => h("th", { text: x })))),
+      h("tbody", {}, rows.slice(0, 800).map((p) => {
+        const cb = h("input", { type: "checkbox" });
+        cb.checked = stu.sel.has(p.id);
+        cb.addEventListener("change", () => { cb.checked ? stu.sel.add(p.id) : stu.sel.delete(p.id); });
+        return h("tr", {},
+          h("td", {}, cb),
+          h("td", {}, h("span", { class: "dot" + (online.has(p.id) ? " on" : ""), title: online.has(p.id) ? "متصل" : "غير متصل" })),
+          h("td", {}, h("b", { text: p.name })),
+          h("td", { class: "num", text: p.className }),
+          h("td", { class: "num", text: p.answered }),
+          h("td", { class: "num", text: p.correct }),
+          h("td", { text: fmt.date(p.createdAt) }),
+          h("td", {}, h("div", { class: "row" },
+            h("button", { class: "icon-btn", type: "button", title: "تعديل الاسم", "aria-label": "تعديل اسم " + p.name, text: "✎", onclick: () => renameStudent(p) }),
+            h("button", { class: "icon-btn", type: "button", title: "نقل إلى فصل آخر", "aria-label": "نقل " + p.name, text: "⇄", onclick: () => moveStudent(p) }),
+            h("button", { class: "icon-btn danger", type: "button", title: "حذف", "aria-label": "حذف " + p.name, text: "✕", onclick: async () => {
+              if (await confirmBox("حذف الطالب «" + p.name + "»؟ سيُسجَّل خروجه من جهازه.", { ok: "حذف", danger: true }))
+                act("admin:playerDelete", { playerIds: [p.id] }, "تم الحذف");
+            } }))));
+      })))) : h("div", { class: "empty", text: players.length ? "لا يوجد طلاب مطابقون للبحث" : "لم يسجّل أي طالب بعد" }));
+  }
+
+  function renameStudent(p) {
+    const input = h("input", { class: "input", maxlength: 30 });
+    input.value = p.name;
+    const close = modal("تعديل اسم الطالب", h("label", { class: "field" }, h("span", { text: "الاسم" }), input),
+      [{ text: "حفظ", cls: "btn-gold", onclick: async (c) => { if (await act("admin:playerRename", { playerId: p.id, name: input.value }, "تم تعديل الاسم")) c(); } }]);
+    setTimeout(() => input.select(), 50);
+    input.addEventListener("keydown", async (e) => { if (e.key === "Enter" && await act("admin:playerRename", { playerId: p.id, name: input.value }, "تم تعديل الاسم")) close(); });
+  }
+
+  function moveStudent(p) {
+    const sel = h("select", { class: "input" }, data.classes.map((c) => h("option", { value: c.id, text: c.name })));
+    sel.value = p.classId;
+    modal("نقل «" + p.name + "» إلى فصل آخر", h("label", { class: "field" }, h("span", { text: "الفصل الجديد" }), sel),
+      [{ text: "نقل", cls: "btn-gold", onclick: async (c) => { if (await act("admin:playerMove", { playerId: p.id, classId: sel.value }, "تم النقل")) c(); } }]);
   }
 
   /* ========================================================= league & rounds */
@@ -575,6 +744,7 @@
         h("div", { class: "tcard-actions" },
           active ? h("button", { class: "btn btn-sm", type: "button", text: "إلى التحكم المباشر", onclick: () => selectTab("live") })
             : h("button", { class: "btn btn-sm btn-gold", type: "button", text: "تفعيل", onclick: () => act("tournament:activate", { tournamentId: t.id }, "تم التفعيل") }),
+          h("button", { class: "btn btn-sm btn-light", type: "button", text: "تعديل", onclick: () => editTournamentModal(t) }),
           h("button", { class: "btn btn-sm btn-light", type: "button", text: "حذف", onclick: async () => {
             if (await confirmBox("حذف «" + t.name + "» نهائيًا؟ تبقى النتائج المسجلة في الإحصائيات.", { title: "حذف المسابقة", ok: "حذف", danger: true }))
               act("tournament:delete", { tournamentId: t.id }, "تم الحذف");
@@ -584,13 +754,107 @@
       body);
   }
 
+  function editTournamentModal(t) {
+    const ko = t.type === "knockout";
+    const played = ko && t.rounds.flat().some((m) => !m.bye && m.status !== "pending");
+    const name = h("input", { class: "input", maxlength: 60 });
+    name.value = t.name;
+    const chosen = new Set(t.classIds);
+    let pairing = t.pairing || "grade";
+    const locked = ko && played;
+    const checks = h("div", { class: "class-checks" }, byGrade(data.classes).map(([g, list]) => h("div", { class: "grade-row" },
+      h("b", { text: "الصف " + GRADES[g] }),
+      list.map((c) => {
+        const cb = h("input", { type: "checkbox", disabled: locked });
+        cb.checked = chosen.has(c.id);
+        const lab = h("label", { class: "pill-check" + (cb.checked ? " on" : "") }, cb, h("span", { class: "num", text: c.name }));
+        cb.addEventListener("change", () => { cb.checked ? chosen.add(c.id) : chosen.delete(c.id); lab.classList.toggle("on", cb.checked); });
+        return lab;
+      }))));
+    const qpm = h("input", { class: "input", type: "number", min: 1, max: 50, value: t.questionsPerMatch || 10, style: { width: "120px" } });
+    const seg = h("div", { class: "seg" }, [["grade", "حسب الصف"], ["random", "قرعة عشوائية"]].map(([v, txt]) => {
+      const b = h("button", { type: "button", class: pairing === v ? "on" : "", text: txt, disabled: locked });
+      b.addEventListener("click", () => { pairing = v; $$("button", seg).forEach((x) => x.classList.toggle("on", x === b)); });
+      return b;
+    }));
+    const body = h("div", { class: "stack" },
+      h("label", { class: "field" }, h("span", { text: "اسم المسابقة" }), name),
+      h("div", { class: "field" }, h("span", { text: "الفصول المشاركة" }), checks),
+      ko ? h("div", { class: "row" },
+        h("label", { class: "field" }, h("span", { text: "أسئلة كل مباراة" }), qpm),
+        h("div", { class: "field" }, h("span", { text: "طريقة الاقتران" }), seg)) : null,
+      ko ? h("p", { class: "hint", text: locked
+        ? "بدأت بعض المباريات، لذلك لا يمكن تغيير الفصول أو القرعة. يمكنك تعديل طرفي أي مباراة لم تُلعب من «التحكم المباشر»."
+        : "تغيير الفصول أو طريقة الاقتران يعيد إنشاء جدول المباريات." })
+        : h("p", { class: "hint", text: "لا يمكن إزالة فصل مسابقته مفتوحة الآن." }));
+    const sameSet = (a, b) => a.size === b.size && [...a].every((x) => b.has(x));
+    const buttons = [{ text: "حفظ التعديلات", cls: "btn-gold", onclick: async (close) => {
+      const payload = { tournamentId: t.id, name: name.value };
+      if (ko) payload.questionsPerMatch = +qpm.value;
+      if (!locked && !sameSet(chosen, new Set(t.classIds))) payload.classIds = [...chosen];
+      if (ko && !locked && pairing !== (t.pairing || "grade")) payload.pairing = pairing;
+      if (await act("tournament:update", payload, "تم حفظ التعديلات")) close();
+    } }];
+    if (ko && !locked) buttons.push({ text: "إعادة القرعة", cls: "btn-light", onclick: async (close) => {
+      if (!(await confirmBox("إعادة إنشاء جدول المباريات بقرعة جديدة؟", { ok: "إعادة القرعة" }))) return;
+      if (await act("tournament:update", { tournamentId: t.id, redraw: true, pairing }, "أُعيدت القرعة")) close();
+    } });
+    modal("تعديل «" + t.name + "»", body, buttons);
+  }
+
+  function editMatchModal(t, m) {
+    const opts = () => t.classIds.map((id) => h("option", { value: id, text: (classById(id) || {}).name || "—" }));
+    const a = h("select", { class: "input" }, opts());
+    const b = h("select", { class: "input" }, opts());
+    if (m.A.id) a.value = m.A.id;
+    if (m.B.id) b.value = m.B.id; else if (t.classIds[1]) b.value = t.classIds[1];
+    modal("تعديل طرفي المباراة — " + m.roundName, h("div", { class: "stack" },
+      h("div", { class: "grid-2" },
+        h("label", { class: "field" }, h("span", { text: "الطرف الأول" }), a),
+        h("label", { class: "field" }, h("span", { text: "الطرف الثاني" }), b)),
+      h("p", { class: "hint", text: "لا يمكن أن يظهر الفصل في مباراتين من الجولة نفسها." })),
+    [{ text: "حفظ", cls: "btn-gold", onclick: async (close) => {
+      if (await act("match:setTeams", { matchId: m.id, classA: a.value, classB: b.value }, "تم تعديل المباراة")) close();
+    } }]);
+  }
+
   const STATUS = { idle: "لم تبدأ", lobby: "بانتظار البدء", running: "جارية", finished: "انتهت" };
   const PHASES = { lobby: "بانتظار انضمام الطلاب", countdown: "عد تنازلي", question: "السؤال معروض", reveal: "عرض الإجابة", done: "انتهت المباراة" };
 
   /* ============================================================ live control */
+  const typingIn = (root) => {
+    const a = document.activeElement;
+    return !!(a && root && root.contains(a) && (a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && a.type !== "checkbox")));
+  };
   function scheduleLive() {
-    if (pointerDown) { livePending = true; return; }
+    if (pointerDown || typingIn($("#tab-live"))) { livePending = true; return; }
     renderLive();
+  }
+  document.addEventListener("focusout", () => {
+    setTimeout(() => { if (livePending && !pointerDown && !typingIn($("#tab-live"))) { livePending = false; renderLive(); } }, 80);
+  });
+  let msgDraft = "";
+
+  function checklistCard(t) {
+    const items = [];
+    items.push([!(data.password && data.password.isDefault), "غُيّرت كلمة المرور الافتراضية"]);
+    items.push([!!live.displays, "شاشة العرض متصلة"]);
+    items.push([!!t, "توجد مسابقة مفعّلة"]);
+    if (t && t.type === "knockout") {
+      const next = t.rounds.flat().find((m) => !m.bye && m.status === "pending" && m.A.id && m.B.id);
+      if (next) {
+        const short = [next.A, next.B].filter((x) => ((classById(x.id) || {}).questions || []).length < t.questionsPerMatch);
+        items.push([!short.length, short.length ? "أسئلة غير كافية في: " + short.map((x) => x.name).join("، ") + " (المطلوب " + t.questionsPerMatch + ")"
+          : "بنوك الأسئلة كافية للمباراة التالية (" + next.A.name + " × " + next.B.name + ")"]);
+      }
+    } else if (t) {
+      const empty = t.classIds.filter((id) => !((classById(id) || {}).questions || []).length);
+      items.push([!empty.length, empty.length ? "فصول بلا أسئلة: " + empty.map((id) => (classById(id) || {}).name).join("، ") : "كل الفصول المشاركة لديها أسئلة"]);
+    }
+    items.push([(live.onlineTotal || 0) > 0, "الطلاب المتصلون الآن: " + (live.onlineTotal || 0)]);
+    return h("div", { class: "panel-card stack" },
+      h("h3", { text: "قائمة الجاهزية" }),
+      h("ul", { class: "checklist" }, items.map(([ok, text]) => h("li", { class: ok ? "ok" : "no" }, h("span", { class: "mark", text: ok ? "✓" : "!" }), text))));
   }
 
   function renderLive() {
@@ -598,7 +862,7 @@
     if (liveStop) { liveStop(); liveStop = null; }
     const root = $("#tab-live");
     const t = live.tournament;
-    const side = h("div", { class: "stack" }, displayCard(), lateJoinCard(), onlineCard());
+    const side = h("div", { class: "stack" }, checklistCard(t), displayCard(), lateJoinCard(), onlineCard());
     if (!t) {
       render(root, h("div", { class: "live-grid" },
         h("div", { class: "empty" }, "لا توجد مسابقة مفعّلة. أنشئ مسابقة أو فعّلها من تبويب «الدوري والجولات».", h("br"), h("br"),
@@ -642,7 +906,7 @@
       }
       add("إغلاق شاشة النتيجة", "btn-light", () => act("match:close"));
     } else {
-      if (L.phase === "question") add("كشف الإجابة الآن", "btn-gold btn-lg", () => act("match:reveal"));
+      if (L.phase === "question") add(L.timeUp ? "كشف الإجابة" : "كشف الإجابة الآن", "btn-gold btn-lg", () => act("match:reveal"));
       if (L.phase === "reveal") add(L.qIndex + 1 < L.qTotal ? "السؤال التالي" : "عرض النتيجة النهائية", "btn-gold btn-lg", () => act("match:next"));
       if (L.phase === "countdown") add("العد التنازلي جارٍ…", "btn-light", () => {});
       add("إنهاء واعتماد النتيجة", "btn-light", async () => {
@@ -652,7 +916,9 @@
         if (await confirmBox("إلغاء المباراة وحذف نقاطها؟ ستعود المباراة إلى حالة «بانتظار اللعب».", { ok: "إلغاء المباراة", danger: true })) act("match:cancel");
       });
       const timer = h("div", { class: "big-timer num" });
-      if (L.phase === "question") {
+      if (L.phase === "question" && L.timeUp) {
+        timer.textContent = "انتهى الوقت";
+      } else if (L.phase === "question") {
         const ms = Math.max(...L.sides.map((s) => (s.question ? s.question.remainingMs : 0)));
         liveStop = D.countdown(ms, (left) => { timer.textContent = Math.ceil(left / 1000) + " ث"; });
       } else if (L.phase === "countdown") {
@@ -717,6 +983,8 @@
               } }));
             }
           }
+          if (!m.bye && m.status === "pending" && !m.isLive)
+            btns.push(h("button", { class: "btn btn-sm btn-light", type: "button", text: "تعديل الطرفين", onclick: () => editMatchModal(t, m) }));
           if (!m.bye && (m.status === "finished" || m.isLive))
             btns.push(h("button", { class: "btn btn-sm btn-light", type: "button", text: "إعادة ضبط", onclick: async () => {
               if (await confirmBox("إعادة ضبط المباراة وحذف نتيجتها لإعادة لعبها؟", { ok: "إعادة ضبط", danger: true })) act("match:reset", { matchId: m.id }, "أُعيد ضبط المباراة");
@@ -803,7 +1071,21 @@
       h("p", { class: "hint", text: "«تلقائي» يعرض المباراة الجارية أو ترتيب الفصول حسب الحالة." }),
       h("div", { class: "row" },
         h("button", { class: "btn btn-gold btn-sm", type: "button", text: "تشغيل الافتتاح على الشاشة", onclick: () => act("display:opening", {}, "بدأ الافتتاح") }),
-        h("a", { class: "btn btn-light btn-sm", href: "/display", target: "_blank", rel: "noopener", text: "فتح الشاشة" })));
+        h("a", { class: "btn btn-light btn-sm", href: "/display", target: "_blank", rel: "noopener", text: "فتح الشاشة" })),
+      messageBox(mode));
+  }
+
+  function messageBox(mode) {
+    const ta = h("textarea", { class: "input", rows: 2, maxlength: 200, placeholder: "مثال: استراحة لمدة خمس دقائق، تبدأ الجولة التالية في تمام العاشرة" });
+    ta.value = msgDraft || (mode === "message" ? data.settings.displayMessage : "");
+    ta.addEventListener("input", () => { msgDraft = ta.value; });
+    return h("div", { class: "stack msg-box" },
+      h("b", { text: "رسالة على الشاشة" }), ta,
+      h("div", { class: "row" },
+        h("button", { class: "btn btn-sm", type: "button", text: "اعرض الرسالة", onclick: async () => {
+          if (await act("display:message", { text: ta.value, show: true }, "تُعرض الرسالة الآن")) msgDraft = "";
+        } }),
+        mode === "message" ? h("button", { class: "btn btn-light btn-sm", type: "button", text: "إخفاء الرسالة", onclick: () => act("display:message", { show: false }) }) : null));
   }
 
   function lateJoinCard() {
@@ -831,7 +1113,11 @@
     const table = (heads, rows) => rows.length
       ? h("div", { class: "table-wrap" }, h("table", { class: "table" }, h("thead", {}, h("tr", {}, heads.map((x) => h("th", { text: x })))), h("tbody", {}, rows)))
       : h("div", { class: "empty", text: "لا توجد بيانات بعد" });
+    const fields = s.byField || [];
     render($("#tab-stats"), h("div", { class: "stack" },
+      h("div", { class: "row" },
+        h("button", { class: "btn btn-gold btn-sm", type: "button", text: "تصدير نتائج الطلاب (Excel)", onclick: () => downloadCsv("students") }),
+        h("button", { class: "btn btn-light btn-sm", type: "button", text: "تصدير سجل المباريات (Excel)", onclick: () => downloadCsv("history") })),
       h("div", { class: "kpis" },
         h("div", { class: "kpi" }, h("b", { class: "num", text: s.totals.players }), h("span", { text: "طالبًا مسجّلًا" })),
         h("div", { class: "kpi" }, h("b", { class: "num", text: s.totals.answers }), h("span", { text: "إجابة مسجّلة" })),
@@ -844,8 +1130,14 @@
             h("td", { class: "num", text: p.correct + "/" + p.answered }), h("td", {}, rate(p.accuracy)),
             h("td", { class: "num", text: fmt.int(p.koPoints) }), h("td", { class: "num", text: fmt.dec(p.contestPoints, 1) }))))),
         h("div", { class: "panel-card" }, h("h3", { text: "الأسئلة الأصعب (أقل نسبة إجابة صحيحة)" }),
-          table(["السؤال", "الفصل", "الإجابات", "الصحيحة"], s.hardest.map((q) => h("tr", {},
-            h("td", { text: q.text }), h("td", { class: "num", text: q.className }), h("td", { class: "num", text: q.answered }), h("td", {}, rate(q.rate))))))),
+          table(["السؤال", "المجال", "الفصل", "الإجابات", "الصحيحة"], s.hardest.map((q) => h("tr", {},
+            h("td", { text: q.text }), h("td", { text: q.field || "—" }), h("td", { class: "num", text: q.className }), h("td", { class: "num", text: q.answered }), h("td", {}, rate(q.rate))))))),
+      h("div", { class: "panel-card" }, h("h3", { text: "الأداء حسب المجال" }),
+        fields.some((f) => f.answered) ? h("div", { class: "field-bars" }, fields.map((f) => h("div", { class: "fbar" },
+          h("span", { class: "fname", text: f.name }),
+          h("div", { class: "prog big" }, h("i", { style: { width: Math.round((f.rate || 0) * 100) + "%" } })),
+          h("span", { class: "num", text: f.answered ? fmt.pct(f.rate) + " (" + f.answered + " إجابة)" : "—" }))))
+          : h("div", { class: "empty", text: "حدّد مجال كل سؤال في محرر الأسئلة لتظهر هنا نسبة الإجابات الصحيحة لكل مجال" })),
       h("div", { class: "panel-card" }, h("h3", { text: "ترتيب الفصول" }),
         table(["الفصل", "مباريات", "فوز", "خسارة", "متوسط نقاط الدوري", "مسابقات منفصلة", "متوسطها /5"], s.standings.map((r) => h("tr", {},
           h("td", { class: "num", text: r.name }), h("td", { class: "num", text: r.koPlayed }), h("td", { class: "num", text: r.koWins }),
@@ -873,8 +1165,15 @@
   }
 
   /* ============================================================ settings */
-  function renderSettings() {
+  let settingsEdit = false;
+  function renderSettings(force) {
+    const root = $("#tab-settings");
+    if (!force && root.firstChild && (settingsEdit || typingIn(root))) return;  // keep unsaved edits
+    settingsEdit = false;
     const pw = data.password || {};
+    const st = data.settings;
+    const site = st.site || data.defaultSite || {};
+    const markEdit = (el) => { el.addEventListener("input", () => { settingsEdit = true; }); el.addEventListener("change", () => { settingsEdit = true; }); return el; };
     const cur = h("input", { class: "input", type: "password", autocomplete: "current-password", dir: "ltr" });
     const nw = h("input", { class: "input", type: "password", autocomplete: "new-password", dir: "ltr" });
     const nw2 = h("input", { class: "input", type: "password", autocomplete: "new-password", dir: "ltr" });
@@ -887,25 +1186,91 @@
         h("div", {}, "رابط الطلاب: ", h("b", { class: "num", text: u })),
         h("div", {}, "شاشة العرض: ", h("b", { class: "num", text: u.replace(/\/play$/, "/display") })),
         h("p", { class: "hint", text: "يجب أن تكون أجهزة الطلاب متصلة بالشبكة نفسها (Wi‑Fi) التي يعمل عليها هذا الجهاز." }))));
-    render($("#tab-settings"), h("div", { class: "grid-2", style: { alignItems: "start" } },
-      h("div", { class: "panel-card stack" },
-        h("h3", { text: "تغيير كلمة المرور" }),
-        pw.source === "env"
-          ? h("p", { class: "hint", text: "كلمة المرور محددة من متغير البيئة ADMIN_PASSWORD على الخادم، ولا يمكن تغييرها من هنا." })
-          : h("form", { class: "stack", onsubmit: async (e) => {
-              e.preventDefault();
-              if (nw.value !== nw2.value) { toast("كلمتا المرور الجديدتان غير متطابقتين", "bad"); return; }
-              const r = await act("admin:password", { current: cur.value, new: nw.value }, "تم تغيير كلمة المرور");
-              if (r) { cur.value = nw.value = nw2.value = ""; }
-            } },
-            h("label", { class: "field" }, h("span", { text: "كلمة المرور الحالية" }), cur),
-            h("label", { class: "field" }, h("span", { text: "كلمة المرور الجديدة (6 أحرف على الأقل)" }), nw),
-            h("label", { class: "field" }, h("span", { text: "تأكيد كلمة المرور الجديدة" }), nw2),
-            h("button", { class: "btn", type: "submit", text: "حفظ كلمة المرور" }))),
+
+    // competition settings
+    const countdown = markEdit(h("input", { class: "input", type: "number", min: 3, max: 10, value: st.countdown || 3, style: { width: "110px" } }));
+    const check = (key, label, hint) => {
+      const cb = markEdit(h("input", { type: "checkbox" }));
+      cb.checked = !!st[key];
+      cb.dataset.key = key;
+      return h("label", { class: "check setting" }, cb, h("span", {}, h("b", { text: label }), hint ? h("small", { text: hint }) : null));
+    };
+    const checks = [
+      check("autoReveal", "كشف الإجابة تلقائيًا", "عند انتهاء الوقت أو إجابة جميع الطلاب. عند إيقافه يكشفها المعلم بنفسه."),
+      check("allowLateJoin", "السماح بالانضمام بعد البدء", "الأنسب لمنع الغش إبقاؤه متوقفًا."),
+      check("reviewAfterContest", "مراجعة الأخطاء بعد المسابقات المنفصلة", "يرى الطالب الإجابات الصحيحة لأخطائه بعد انتهاء جميع الفصول."),
+      check("showLeadersOnHome", "إظهار أفضل الطلاب في الصفحة الرئيسية", "في قسم «أبطال ضفاف العربية»."),
+    ];
+    const compCard = h("div", { class: "panel-card stack" },
+      h("h3", { text: "إعدادات المسابقة" }),
+      h("label", { class: "field" }, h("span", { text: "العد التنازلي قبل كل سؤال (ثوانٍ)" }), countdown),
+      checks,
+      h("button", { class: "btn btn-gold", type: "button", text: "حفظ الإعدادات", onclick: async () => {
+        const payload = { countdown: +countdown.value };
+        checks.forEach((l) => { const cb = l.querySelector("input"); payload[cb.dataset.key] = cb.checked; });
+        if (await act("settings:update", payload, "تم حفظ الإعدادات")) settingsEdit = false;
+      } }));
+
+    // site texts
+    const inp = (key, max) => { const el = markEdit(h("input", { class: "input", maxlength: max })); el.value = site[key] || ""; return el; };
+    const area = (key, max, rows) => { const el = markEdit(h("textarea", { class: "input", maxlength: max, rows })); el.value = site[key] || ""; return el; };
+    const f = {
+      programName: inp("programName", 40), schoolName: inp("schoolName", 80), tagline: inp("tagline", 100),
+      welcome: area("welcome", 400, 3), verse: area("verse", 200, 2), poet: inp("poet", 60), announcement: area("announcement", 200, 2),
+    };
+    const goals = markEdit(h("textarea", { class: "input", rows: 6 }));
+    goals.value = (site.goals || []).join("\n");
+    const fieldRow = (label, el, hint) => h("label", { class: "field" }, h("span", { text: label }), el, hint ? h("small", { class: "hint", text: hint }) : null);
+    const siteCard = h("div", { class: "panel-card stack" },
+      h("h3", { text: "نصوص الموقع" }),
+      h("p", { class: "hint", text: "تظهر في الصفحة الرئيسية وصفحة «عن البرنامج» وشاشة العرض." }),
+      h("div", { class: "grid-2" }, fieldRow("اسم البرنامج", f.programName), fieldRow("اسم المدرسة", f.schoolName)),
+      fieldRow("الشعار النصي", f.tagline),
+      fieldRow("رسالة الترحيب", f.welcome),
+      fieldRow("أهداف البرنامج", goals, "هدف في كل سطر (حتى 8 أهداف)."),
+      h("div", { class: "grid-2" }, fieldRow("بيت الشعر", f.verse, "شطر في كل سطر."), fieldRow("الشاعر", f.poet)),
+      fieldRow("إعلان", f.announcement, "يظهر أعلى الصفحة الرئيسية وفي شريط أسفل شاشة العرض. اتركه فارغًا لإخفائه."),
+      h("div", { class: "row" },
+        h("button", { class: "btn btn-gold", type: "button", text: "حفظ النصوص", onclick: async () => {
+          const payload = { goals: goals.value.split("\n").map((x) => x.trim()).filter(Boolean) };
+          for (const [k, el] of Object.entries(f)) payload[k] = el.value;
+          if (await act("settings:site", payload, "تم حفظ النصوص")) settingsEdit = false;
+        } }),
+        h("button", { class: "btn btn-light", type: "button", text: "استعادة النصوص الأصلية", onclick: () => {
+          const d = data.defaultSite || {};
+          for (const [k, el] of Object.entries(f)) el.value = d[k] || "";
+          goals.value = (d.goals || []).join("\n");
+          settingsEdit = true;
+          toast("أُعيدت النصوص الأصلية إلى النموذج. اضغط «حفظ النصوص» لاعتمادها.", "warn");
+        } }),
+        h("a", { class: "btn btn-light", href: "/#home", target: "_blank", rel: "noopener", text: "معاينة الصفحة الرئيسية" })));
+
+    render(root, h("div", { class: "grid-2", style: { alignItems: "start" } },
+      h("div", { class: "stack" }, compCard, siteCard),
       h("div", { class: "stack" },
         h("div", { class: "panel-card stack" },
+          h("h3", { text: "تغيير كلمة المرور" }),
+          pw.source === "env"
+            ? h("p", { class: "hint", text: "كلمة المرور محددة من متغير البيئة ADMIN_PASSWORD على الخادم، ولا يمكن تغييرها من هنا." })
+            : h("form", { class: "stack", onsubmit: async (e) => {
+                e.preventDefault();
+                if (nw.value !== nw2.value) { toast("كلمتا المرور الجديدتان غير متطابقتين", "bad"); return; }
+                const r = await act("admin:password", { current: cur.value, new: nw.value }, "تم تغيير كلمة المرور");
+                if (r) { cur.value = nw.value = nw2.value = ""; }
+              } },
+              h("label", { class: "field" }, h("span", { text: "كلمة المرور الحالية" }), cur),
+              h("label", { class: "field" }, h("span", { text: "كلمة المرور الجديدة (6 أحرف على الأقل)" }), nw),
+              h("label", { class: "field" }, h("span", { text: "تأكيد كلمة المرور الجديدة" }), nw2),
+              h("button", { class: "btn", type: "submit", text: "حفظ كلمة المرور" }))),
+        h("div", { class: "panel-card stack" },
+          h("h3", { text: "تصدير النتائج إلى Excel" }),
+          h("div", { class: "row" },
+            h("button", { class: "btn btn-light btn-sm", type: "button", text: "نتائج الطلاب", onclick: () => downloadCsv("students") }),
+            h("button", { class: "btn btn-light btn-sm", type: "button", text: "سجل المباريات", onclick: () => downloadCsv("history") }),
+            h("button", { class: "btn btn-light btn-sm", type: "button", text: "قائمة الطلاب", onclick: () => downloadCsv("players") }))),
+        h("div", { class: "panel-card stack" },
           h("h3", { text: "النسخ الاحتياطي" }),
-          h("p", { class: "hint", text: "نزّل نسخة من كل البيانات (الفصول، الأسئلة، المسابقات، النتائج) واحتفظ بها، خاصة عند التشغيل على خادم مجاني قد يُعاد تشغيله." }),
+          h("p", { class: "hint", text: "نزّل نسخة من كل البيانات (الفصول، الأسئلة، المسابقات، النتائج، الإعدادات) واحتفظ بها، خاصة عند التشغيل على خادم مجاني قد يُعاد تشغيله." }),
           h("div", { class: "row" },
             h("button", { class: "btn btn-gold", type: "button", text: "تنزيل نسخة احتياطية", onclick: exportBackup }),
             h("button", { class: "btn btn-light", type: "button", text: "استعادة من ملف…", onclick: () => fileIn.click() }), fileIn)),

@@ -6,6 +6,8 @@ Run:  uvicorn app.main:app --host 0.0.0.0 --port 8000
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import json
 import logging
 import os
@@ -73,9 +75,15 @@ class RateLimiter:
 limiter = RateLimiter()
 
 
+# Views are computed and sent under one lock so that two concurrent flushes can
+# never deliver an older snapshot after a newer one to the same screen.
+_send_lock = asyncio.Lock()
+
+
 async def flush(force: bool = False) -> None:
-    for event, data, to in game.drain(force):
-        await sio.emit(event, data, to=to)
+    async with _send_lock:
+        for event, data, to in game.drain(force):
+            await sio.emit(event, data, to=to)
 
 
 def password_info() -> dict:
@@ -152,7 +160,8 @@ def on_player_sync(sid, data):
 async def on_display_join(sid, data):
     game.set_role(sid, "display")
     await sio.enter_room(sid, "display")
-    await sio.emit("display:state", game.display_state(), to=sid)
+    async with _send_lock:
+        await sio.emit("display:state", game.display_state(), to=sid)
     return {"ok": True}
 
 
@@ -164,8 +173,10 @@ async def on_admin_login(sid, data):
     game.set_role(sid, "admin", admin=True)
     game.sids[sid]["token"] = token
     await sio.enter_room(sid, "admin")
-    await sio.emit("admin:data", game.admin_data(password_info()), to=sid)
-    await sio.emit("admin:live", game.admin_live(), to=sid)
+    async with _send_lock:
+        await sio.emit("admin:data", game.admin_data(password_info()), to=sid)
+        await sio.emit("admin:live", game.admin_live(), to=sid)
+        await sio.emit("admin:players", game.admin_players(), to=sid)
     return {"ok": True, "token": token}
 
 
@@ -192,6 +203,7 @@ async def on_admin_password(sid, data):
 ADMIN_ACTIONS = {
     "class:create": game.class_create,
     "class:delete": game.class_delete,
+    "class:update": game.class_update,
     "class:saveQuestions": game.class_save_questions,
     "class:copyQuestions": game.class_copy_questions,
     "class:addSamples": game.class_add_samples,
@@ -199,6 +211,8 @@ ADMIN_ACTIONS = {
     "tournament:activate": game.tournament_activate,
     "tournament:delete": game.tournament_delete,
     "tournament:setQuestions": game.tournament_set_questions,
+    "tournament:update": game.tournament_update,
+    "match:setTeams": game.match_set_teams,
     "match:open": game.match_open,
     "match:start": game.match_start,
     "match:reveal": game.match_reveal,
@@ -215,6 +229,13 @@ ADMIN_ACTIONS = {
     "display:set": game.display_set,
     "display:opening": game.display_opening,
     "settings:lateJoin": game.set_late_join,
+    "settings:update": game.settings_update,
+    "settings:site": game.site_update,
+    "display:message": game.display_message,
+    "admin:playerRename": game.admin_player_rename,
+    "admin:playerMove": game.admin_player_move,
+    "admin:playerDelete": game.admin_player_delete,
+    "admin:playersClear": game.admin_players_clear,
     "stats:reset": game.stats_reset,
     "data:reset": game.data_reset,
 }
@@ -335,6 +356,12 @@ async def classes():
     return {"classes": game.public_classes()}
 
 
+@api.get("/api/site")
+async def site():
+    """Public texts and highlights for the main page (never contains answers)."""
+    return game.public_site()
+
+
 @lru_cache(maxsize=64)
 def qr_svg(text: str) -> str:
     qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=2)
@@ -378,6 +405,26 @@ async def export_data(request: Request):
     stamp = time.strftime("%Y-%m-%d_%H-%M")
     return Response(body, media_type="application/json",
                     headers={"Content-Disposition": f'attachment; filename="difaf-backup-{stamp}.json"'})
+
+
+@api.get("/api/admin/export/{kind}.csv")
+async def export_csv(kind: str, request: Request, classId: str = ""):
+    if not _admin_token_ok(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        head, rows = game.csv_table(kind, classId or None)
+    except GameError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(head)
+    for row in rows:
+        # neutralise spreadsheet formulas typed by students (CSV injection)
+        writer.writerow([("'" + v) if isinstance(v, str) and v[:1] in ("=", "+", "-", "@") else v for v in row])
+    body = "\ufeff" + buf.getvalue()  # BOM so Excel shows Arabic correctly
+    stamp = time.strftime("%Y-%m-%d")
+    return Response(body.encode("utf-8"), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="difaf-{kind}-{stamp}.csv"'})
 
 
 @api.post("/api/admin/import")

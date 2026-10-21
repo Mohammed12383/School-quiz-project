@@ -56,6 +56,12 @@
   socket.on("player:state", (s) => {
     if (!s || s.phase === "loggedOut") { forget(); showRegistration(); return; }
     state = s;
+    // the teacher may rename the student or move them to another class
+    if (player && s.me && (s.me.name !== player.name || s.me.classId !== player.classId)) {
+      player = { ...player, name: s.me.name, classId: s.me.classId, className: s.me.className };
+      store.set(KEY, JSON.stringify(player));
+      showWho(true);
+    }
     renderState();
   });
   socket.on("player:loggedOut", () => {
@@ -157,7 +163,7 @@
     const grades = [...new Set(classes.map((c) => c.grade))].sort((a, b) => a - b);
     if (!grades.length) {
       render(app, h("section", { class: "screen center" },
-        h("div", { class: "sail-wrap" }, h("img", { src: "/static/img/logo-mark.png", alt: "" })),
+        h("div", { class: "sail-wrap" }, h("img", { src: "/static/img/logo-full.png", alt: "شعار مدرسة يزيد بن حاتم الأزدي" })),
         h("p", { class: "status-box", text: "لم يُضف المعلم أي فصل بعد. انتظر قليلًا ثم حدّث الصفحة." }),
         h("button", { class: "btn", text: "تحديث", onclick: showRegistration })));
       return;
@@ -232,7 +238,7 @@
 
   function screenWaiting(s) {
     render(app, h("section", { class: "screen center" },
-      h("div", { class: "sail-wrap" }, h("img", { src: "/static/img/logo-mark.png", alt: "" })),
+      h("div", { class: "sail-wrap" }, h("img", { src: "/static/img/logo-full.png", alt: "شعار مدرسة يزيد بن حاتم الأزدي" })),
       h("p", { class: "hello", text: "أهلًا " + s.me.name }),
       h("span", { class: "chip navy", text: "فصل " + s.me.className }),
       h("p", { class: "status-box" }, s.note || "لا توجد مسابقة لفصلك الآن.", h("br"),
@@ -253,7 +259,7 @@
           h("div", {}, h("small", { text: "من الفصل المنافس" }), h("b", { class: "num", text: s.rivals })))));
     } else {
       render(app, h("section", { class: "screen center" },
-        h("div", { class: "sail-wrap" }, h("img", { src: "/static/img/logo-mark.png", alt: "" })),
+        h("div", { class: "sail-wrap" }, h("img", { src: "/static/img/logo-full.png", alt: "شعار مدرسة يزيد بن حاتم الأزدي" })),
         h("span", { class: "round-label", text: s.title }),
         h("p", { class: "hello", text: "فصل " + s.me.className }),
         h("p", { class: "status-box" }, h("b", { text: "أنت جاهز!" }), " بانتظار المعلم لبدء المسابقة", h("span", { class: "dots" }),
@@ -283,7 +289,7 @@
     const secs = h("span", { class: "secs num" });
     const opts = h("div", { class: "opts" });
     q.options.forEach((text, i) => {
-      const b = h("button", { class: "opt opt-" + (i % 4), type: "button" },
+      const b = h("button", { class: "opt opt-" + (i % 4), type: "button", style: { animationDelay: (0.08 + i * 0.07) + "s" } },
         h("span", { class: "shape" }, SHAPES[i % 4]()), h("span", { class: "t", text }));
       b.addEventListener("click", () => answer(s, i, b, opts, text));
       opts.appendChild(b);
@@ -294,6 +300,7 @@
     render(app, h("section", { class: "screen" },
       h("div", { class: "q-top" }, h("span", { class: "chip navy", text: "السؤال " + (s.qIndex + 1) + " من " + s.qTotal }), info, secs),
       timer,
+      q.field ? h("span", { class: "chip field-chip", text: q.field }) : null,
       h("p", { class: "q-text", text: q.text }),
       opts,
       h("p", { class: "fair-note", text: "مغادرة هذه الصفحة أثناء السؤال تُسجَّل وتظهر للمعلم." })));
@@ -407,8 +414,22 @@
         h("div", { class: "stat" }, h("b", { class: "num", text: s.correct + "/" + s.qTotal }), h("span", { text: "إجابات صحيحة" })),
         h("div", { class: "stat" }, h("b", { class: "num", text: s.rank + "/" + s.of }), h("span", { text: "ترتيبك في الفصل" }))),
       s.classDone
-        ? h("p", { class: "status-box center" }, "انتهت مسابقة فصلك. متوسط الفصل: ", h("b", { class: "num", text: fmt.dec(s.classAvg, 2) + " / 5" }))
-        : h("p", { class: "status-box center" }, h("b", { class: "dots", text: "بانتظار انتهاء زملائك" }))));
+        ? h("p", { class: "status-box center" }, "انتهت مسابقة فصلك. متوسط الفصل: ", h("b", { class: "num", text: fmt.dec(s.classAvg, 2) }), " من 5")
+        : h("p", { class: "status-box center" }, h("b", { class: "dots", text: "بانتظار انتهاء زملائك" })),
+      reviewBox(s)));
+  }
+
+  function reviewBox(s) {
+    if (!s.review) {
+      return s.classDone ? null : h("p", { class: "muted center", text: "ستظهر هنا مراجعة أخطائك بعد انتهاء المسابقة." });
+    }
+    if (!s.review.length) return h("p", { class: "status-box center" }, h("b", { text: "ممتاز! لم تخطئ في أي سؤال." }));
+    return h("section", { class: "review" },
+      h("h3", { text: "راجع أخطاءك (" + s.review.length + ")" }),
+      s.review.map((r, i) => h("article", { class: "review-item", style: { animationDelay: (i * 0.06) + "s" } },
+        h("p", { class: "rq", text: r.text }),
+        h("p", { class: "ry" }, h("b", { text: "إجابتك: " }), r.yours || "لم تُجب في الوقت"),
+        h("p", { class: "rc" }, h("b", { text: "الصحيحة: " }), r.correct))));
   }
 
   function screenLoading() {

@@ -61,7 +61,7 @@
   function confirmBox(message, opts) {
     opts = opts || {};
     return new Promise((resolve) => {
-      const close = (v) => { back.remove(); resolve(v); };
+      let close = (v) => { back.remove(); resolve(v); };
       const input = opts.typeToConfirm ? h("input", { class: "input", placeholder: opts.typeToConfirm, dir: "ltr" }) : null;
       const okBtn = h("button", { class: "btn " + (opts.danger ? "btn-bad" : ""), text: opts.ok || "تأكيد", onclick: () => {
         if (input && input.value.trim() !== opts.typeToConfirm) { input.classList.add("bad"); input.focus(); return; }
@@ -77,7 +77,10 @@
             h("button", { class: "btn btn-light", text: "إلغاء", onclick: () => close(false) }), okBtn)));
       document.body.appendChild(back);
       (input || okBtn).focus();
-      back.addEventListener("keydown", (e) => { if (e.key === "Escape") close(false); });
+      const onKey = (e) => { if (e.key === "Escape") close(false); };
+      document.addEventListener("keydown", onKey);
+      const done = close;
+      close = (v) => { document.removeEventListener("keydown", onKey); done(v); };
     });
   }
 

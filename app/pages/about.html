@@ -10,42 +10,43 @@
   <link rel="stylesheet" href="/static/css/landing.css">
 </head>
 <body class="landing about">
-  <header class="home-head">
+  <header class="about-head">
     <a class="brand" href="/#home">
-      <img src="/static/img/logo-mark.png" alt="" width="60" height="46">
-      <span><b>ضفاف العربية</b><small>مدرسة يزيد بن حاتم الأزدي</small></span>
+      <img src="/static/img/logo-mark.png" alt="" width="800" height="615">
+      <span><b data-site="programName">ضفاف العربية</b><small data-site="schoolName">مدرسة يزيد بن حاتم الأزدي</small></span>
     </a>
-    <nav class="home-nav" aria-label="روابط">
+    <nav aria-label="روابط">
       <a href="/#home">الرئيسية</a>
       <a href="/play">دخول الطالب</a>
     </nav>
   </header>
 
   <div class="about-hero">
-    <img src="/static/img/logo-mark-light.png" alt="" width="170" height="131">
-    <h1>عن برنامج ضفاف العربية</h1>
-    <p>برنامج تربوي ثقافي تنظّمه مدرسة يزيد بن حاتم الأزدي احتفاءً باللغة العربية؛ يجمع بين المعرفة والمتعة في منافسات حيّة بين الفصول.</p>
-    <div class="waves" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="letters" aria-hidden="true"></div>
+    <img src="/static/img/logo-full-light.png" alt="شعار مدرسة يزيد بن حاتم الأزدي" width="1000" height="936">
+    <h1>عن برنامج <span data-site="programName">ضفاف العربية</span></h1>
+    <p data-site="welcome">برنامج تربوي ثقافي يحتفي بلغتنا العربية، لغة القرآن والهوية، عبر منافسات حماسية بين الفصول.</p>
+    <div class="waves to-cream" aria-hidden="true"><i></i><i></i><i></i></div>
   </div>
 
   <main>
-    <section>
+    <section class="reveal">
       <h2>فكرة البرنامج</h2>
       <p>اسم «ضفاف العربية» مستوحى من شعار مدرستنا: كتابٌ مفتوح تُبحر فيه سفينة فوق الموج. العربية بحرٌ واسع، وكل مسابقة رحلة جديدة إلى ضفافه. تتنافس الفصول فيما بينها، ويجيب كل طالب من هاتفه، فتُحسب نتيجة فصله بمتوسط نقاط طلابه؛ فلا يتفوّق فصل لكثرة عدده، بل لتميّز أفراده.</p>
     </section>
 
-    <section>
+    <section class="reveal">
       <h2>أهداف البرنامج</h2>
-      <ol class="goals">
-        <li><b>الاعتزاز بالعربية</b> وتعزيز انتماء الطلاب إلى لغتهم وهويتهم.</li>
-        <li><b>تنمية المهارات اللغوية</b> في النحو والصرف والبلاغة والإملاء والقراءة بأسلوب ممتع.</li>
-        <li><b>إثراء الذائقة الأدبية</b> والاطلاع على روائع الشعر والنثر العربي.</li>
-        <li><b>روح الفريق</b> والتنافس الشريف بين الفصول.</li>
-        <li><b>توظيف التقنية الحديثة</b> في خدمة تعلّم اللغة العربية.</li>
+      <ol class="goals" data-site-list="goals">
+        <li>الاعتزاز بالعربية وتعزيز انتماء الطلاب إلى لغتهم وهويتهم.</li>
+        <li>تنمية المهارات اللغوية في النحو والصرف والبلاغة والإملاء والقراءة بأسلوب ممتع.</li>
+        <li>إثراء الذائقة الأدبية والاطلاع على روائع الشعر والنثر العربي.</li>
+        <li>روح الفريق والتنافس الشريف بين الفصول.</li>
+        <li>توظيف التقنية الحديثة في خدمة تعلّم اللغة العربية.</li>
       </ol>
     </section>
 
-    <section>
+    <section class="reveal">
       <h2>مجالات المنافسة</h2>
       <div class="about-grid">
         <article class="field-card"><h3>النحو والصرف</h3><p>الإعراب وعلاماته، وأنواع الجمل، والأوزان والمشتقات وأبنية الكلمة.</p></article>
@@ -56,14 +57,14 @@
       </div>
     </section>
 
-    <section>
+    <section class="reveal">
       <h2>الفئة المستهدفة</h2>
       <div class="audience">
         <span>الصف التاسع</span><span>الصف العاشر</span><span>الصف الحادي عشر</span><span>الصف الثاني عشر</span>
       </div>
     </section>
 
-    <section>
+    <section class="reveal">
       <h2>أشكال المنافسة</h2>
       <div class="formats">
         <article class="card format">
@@ -87,16 +88,26 @@
       </div>
     </section>
 
-    <section>
+    <section class="reveal">
       <h2>منافسة نزيهة</h2>
-      <p>صُمّمت المنصة لتكون عادلة: الخادم وحده يحسب الوقت والنقاط، ولا تصل الإجابة الصحيحة إلى أي هاتف قبل كشفها، وتظهر الخيارات لكل طالب بترتيب مختلف، ولا يُقبل إلا رد واحد لكل سؤال.</p>
+      <p>صُمّمت المنصة لتكون عادلة: الخادم وحده يحسب الوقت والنقاط، ولا تصل الإجابة الصحيحة إلى أي هاتف قبل كشفها، وتظهر الخيارات لكل طالب بترتيب مختلف، ولا يُقبل إلا رد واحد لكل سؤال، ويرى المعلم من يغادر صفحة السؤال.</p>
       <p class="center"><a class="btn btn-gold btn-lg" href="/play">ابدأ من هاتفك</a></p>
     </section>
   </main>
 
-  <footer class="home-foot">
+  <footer class="foot">
     <div class="waves" aria-hidden="true"><i></i><i></i><i></i></div>
-    <p>مدرسة يزيد بن حاتم الأزدي — برنامج ضفاف العربية</p>
+    <div class="foot-inner">
+      <img src="/static/img/logo-full-light.png" alt="" width="1000" height="936">
+      <div>
+        <b data-site="programName">ضفاف العربية</b>
+        <p data-site="schoolName">مدرسة يزيد بن حاتم الأزدي</p>
+        <nav class="foot-links" aria-label="روابط"><a href="/#home">الرئيسية</a><a href="/play">الطالب</a><a href="/display">شاشة العرض</a><a href="/admin">لوحة التحكم</a></nav>
+      </div>
+    </div>
   </footer>
+
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/about.js"></script>
 </body>
 </html>

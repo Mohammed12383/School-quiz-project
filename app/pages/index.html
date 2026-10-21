@@ -8,6 +8,7 @@
   <meta name="description" content="ضفاف العربية: برنامج تربوي ثقافي للمسابقات بين الفصول في النحو والصرف والبلاغة والأدب والإملاء والقراءة.">
   <link rel="icon" href="/static/img/favicon.png">
   <link rel="preload" href="/static/fonts/cairo-arabic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/img/logo-full-light.png" as="image">
   <link rel="stylesheet" href="/static/css/base.css">
   <link rel="stylesheet" href="/static/css/landing.css">
 </head>
@@ -17,29 +18,34 @@
   <section id="gate" class="gate" aria-label="بوابة الموقع">
     <div class="cover cover-gold" aria-hidden="true"></div>
     <div class="cover cover-navy" aria-hidden="true"></div>
+    <div class="letters" aria-hidden="true"></div>
     <div class="gate-inner">
-      <img class="gate-logo" src="/static/img/logo-mark-light.png" alt="شعار مدرسة يزيد بن حاتم الأزدي" width="360" height="277">
-      <p class="gate-school">مدرسة يزيد بن حاتم الأزدي</p>
-      <h1 class="gate-title">ضفاف العربية</h1>
-      <button id="openBtn" class="btn btn-gold btn-xl gate-btn" type="button">افتح الموقع</button>
+      <img class="gate-logo" src="/static/img/logo-full-light.png" alt="شعار مدرسة يزيد بن حاتم الأزدي" width="1000" height="936">
+      <h1 class="gate-title" data-site="programName">ضفاف العربية</h1>
+      <p class="gate-tag" data-site="tagline">مسابقات اللغة العربية بين الفصول</p>
+      <button id="openBtn" class="btn btn-gold btn-xl gate-btn" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5.5C5.5 4 9 4 12 6c3-2 6.5-2 9-.5V19c-2.5-1.5-6-1.5-9 .5-3-2-6.5-2-9-.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 6v13.5" stroke="currentColor" stroke-width="2"/></svg>
+        افتح الموقع
+      </button>
     </div>
     <div class="waves" aria-hidden="true"><i></i><i></i><i></i></div>
   </section>
 
   <!-- 2) welcome + goals -->
   <section id="welcome" class="welcome" hidden aria-live="polite">
+    <div class="letters letters-soft" aria-hidden="true"></div>
     <div class="welcome-card card pages">
-      <img class="welcome-logo" src="/static/img/logo-mark.png" alt="" width="150" height="115">
+      <img class="welcome-logo" src="/static/img/logo-full.png" alt="شعار مدرسة يزيد بن حاتم الأزدي" width="1000" height="936">
       <p class="eyebrow">أهلًا وسهلًا بكم في</p>
-      <h1 class="welcome-title">برنامج «ضفاف العربية»</h1>
-      <p class="lead">برنامج تربوي ثقافي يحتفي بلغتنا العربية، لغة القرآن والهوية، عبر منافسات حماسية بين الفصول.</p>
+      <h1 class="welcome-title">برنامج «<span data-site="programName">ضفاف العربية</span>»</h1>
+      <p class="lead" data-site="welcome">برنامج تربوي ثقافي يحتفي بلغتنا العربية، لغة القرآن والهوية، عبر منافسات حماسية بين الفصول.</p>
       <h2 class="goals-title">أهداف البرنامج</h2>
-      <ol class="goals">
-        <li><b>الاعتزاز بالعربية</b> وتعزيز انتماء الطلاب إلى لغتهم وهويتهم.</li>
-        <li><b>تنمية المهارات اللغوية</b> في النحو والصرف والبلاغة والإملاء والقراءة بأسلوب ممتع.</li>
-        <li><b>إثراء الذائقة الأدبية</b> والاطلاع على روائع الشعر والنثر العربي.</li>
-        <li><b>روح الفريق</b> والتنافس الشريف بين الفصول.</li>
-        <li><b>توظيف التقنية الحديثة</b> في خدمة تعلّم اللغة العربية.</li>
+      <ol class="goals" data-site-list="goals">
+        <li>الاعتزاز بالعربية وتعزيز انتماء الطلاب إلى لغتهم وهويتهم.</li>
+        <li>تنمية المهارات اللغوية في النحو والصرف والبلاغة والإملاء والقراءة بأسلوب ممتع.</li>
+        <li>إثراء الذائقة الأدبية والاطلاع على روائع الشعر والنثر العربي.</li>
+        <li>روح الفريق والتنافس الشريف بين الفصول.</li>
+        <li>توظيف التقنية الحديثة في خدمة تعلّم اللغة العربية.</li>
       </ol>
       <button id="continueBtn" class="btn btn-lg" type="button">متابعة إلى الصفحة الرئيسية</button>
       <p class="hint">أو اضغط <kbd>Enter</kbd></p>
@@ -48,73 +54,208 @@
 
   <!-- 3) main page -->
   <div id="home" class="home" hidden>
-    <header class="home-head">
+    <header id="nav" class="nav">
       <a class="brand" href="/#home">
-        <img src="/static/img/logo-mark.png" alt="" width="60" height="46">
-        <span><b>ضفاف العربية</b><small>مدرسة يزيد بن حاتم الأزدي</small></span>
+        <img src="/static/img/logo-mark-light.png" class="brand-light" alt="" width="800" height="615">
+        <img src="/static/img/logo-mark.png" class="brand-dark" alt="" width="800" height="615">
+        <span><b data-site="programName">ضفاف العربية</b><small data-site="schoolName">مدرسة يزيد بن حاتم الأزدي</small></span>
       </a>
-      <nav class="home-nav" aria-label="روابط">
+      <nav class="nav-links" aria-label="أقسام الصفحة">
+        <a href="#fields">المجالات</a>
+        <a href="#how">كيف تشارك</a>
+        <a href="#fame">الأبطال</a>
         <a href="/about">عن البرنامج</a>
       </nav>
+      <a class="btn btn-gold btn-sm nav-cta" href="/play">دخول الطالب</a>
     </header>
 
     <main>
-      <section class="hero">
-        <div class="hero-text">
-          <span class="chip">للصفوف من التاسع إلى الثاني عشر</span>
-          <h1>على ضفاف العربية<br><span>نُبحر… ونتنافس</span></h1>
-          <p class="lead">مسابقات مباشرة بين الفصول في النحو والصرف، والبلاغة، والأدب، والإملاء، والقراءة. يجيب الطلاب من هواتفهم، وتظهر النتائج لحظة بلحظة على الشاشة الكبيرة.</p>
-          <blockquote class="verse">
-            <p>أنا البحرُ في أحشائه الدرُّ كامنٌ<br>فهل سألوا الغوّاصَ عن صدَفاتي</p>
-            <cite>حافظ إبراهيم</cite>
-          </blockquote>
+      <section class="hero" aria-label="الترحيب">
+        <div class="letters" aria-hidden="true"></div>
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <a id="liveBadge" class="live-badge" href="/play" hidden></a>
+            <p id="announce" class="announce" hidden></p>
+            <span class="chip hero-chip">للصفوف من التاسع إلى الثاني عشر</span>
+            <h1 class="hero-title">
+              <span class="line"><span>على ضفاف العربية</span></span>
+              <span class="line accent"><span>نُبحر… ونتنافس</span></span>
+            </h1>
+            <p class="hero-lead">مسابقات مباشرة بين الفصول: يجيب الطلاب من هواتفهم، وتظهر الأسئلة والنتائج لحظة بلحظة على الشاشة الكبيرة، ويتأهل الأفضل حتى يُتوَّج البطل.</p>
+            <div class="hero-cta">
+              <a class="btn btn-gold btn-lg" href="/play">انضم كطالب</a>
+              <a class="btn btn-lg btn-glass" href="/display">شاشة العرض</a>
+            </div>
+            <a class="teacher-link" href="/admin">أنا معلم: لوحة التحكم ←</a>
+          </div>
+          <div class="hero-art" aria-hidden="true">
+            <div class="halo"></div>
+            <div class="orbit">
+              <span style="left:50%;top:3%">النحو والصرف</span>
+              <span style="left:94.7%;top:35.5%">البلاغة</span>
+              <span style="left:77.6%;top:88%">الأدب</span>
+              <span style="left:22.4%;top:88%">الإملاء</span>
+              <span style="left:5.3%;top:35.5%">القراءة</span>
+            </div>
+            <img class="hero-logo" src="/static/img/logo-full-light.png" alt="" width="1000" height="936">
+          </div>
         </div>
-        <img class="hero-logo" src="/static/img/logo-full.png" alt="شعار مدرسة يزيد بن حاتم الأزدي" width="420" height="393">
+        <a class="scroll-hint" href="#stats" aria-label="انتقل للأسفل"><span></span></a>
+        <div class="waves to-cream" aria-hidden="true"><i></i><i></i><i></i></div>
+      </section>
+
+      <section id="stats" class="stats" aria-label="أرقام البرنامج" hidden>
+        <div class="stat reveal"><b class="num" data-count="classes">0</b><span>فصلًا مشاركًا</span></div>
+        <div class="stat reveal" style="--d:100ms"><b class="num" data-count="questions">0</b><span>سؤالًا في بنوك الأسئلة</span></div>
+        <div class="stat reveal" style="--d:200ms"><b class="num" data-count="students">0</b><span>طالبًا مسجّلًا</span></div>
+        <div class="stat reveal" style="--d:300ms"><b class="num" data-count="answers">0</b><span>إجابة حتى الآن</span></div>
       </section>
 
       <section class="portals" aria-label="الدخول">
-        <a class="portal portal-student" href="/play">
-          <span class="portal-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48"><rect x="13" y="4" width="22" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="37" r="2.5" fill="currentColor"/><path d="M18 18l4 4 8-9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
+        <a class="portal portal-student reveal" href="/play">
+          <span class="portal-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="13" y="4" width="22" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="37" r="2.5" fill="currentColor"/><path d="M18 18l4 4 8-9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <b>الطالب</b>
-          <span>انضم إلى مسابقة فصلك من هاتفك</span>
-          <em>ادخل ←</em>
+          <span>اختر صفك وفصلك واكتب اسمك، ثم أجب من هاتفك.</span>
+          <em>ادخل الآن ←</em>
         </a>
-        <a class="portal portal-display" href="/display">
-          <span class="portal-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48"><rect x="4" y="7" width="40" height="26" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><path d="M24 33v7M15 41h18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M12 25l7-7 6 5 9-9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
+        <a class="portal portal-display reveal" style="--d:120ms" href="/display">
+          <span class="portal-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="4" y="7" width="40" height="26" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><path d="M24 33v7M15 41h18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M12 25l7-7 6 5 9-9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <b>شاشة العرض</b>
-          <span>للعرض على جهاز الإسقاط أمام الجميع</span>
+          <span>للعرض على جهاز الإسقاط: الأسئلة والنتائج وشجرة البطولة.</span>
           <em>افتح الشاشة ←</em>
         </a>
-        <a class="portal portal-admin" href="/admin">
-          <span class="portal-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="7" fill="none" stroke="currentColor" stroke-width="3"/><path d="M24 4v6M24 38v6M4 24h6M38 24h6M9.9 9.9l4.2 4.2M33.9 33.9l4.2 4.2M9.9 38.1l4.2-4.2M33.9 14.1l4.2-4.2" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-          </span>
+        <a class="portal portal-admin reveal" style="--d:240ms" href="/admin">
+          <span class="portal-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="7" fill="none" stroke="currentColor" stroke-width="3"/><path d="M24 4v6M24 38v6M4 24h6M38 24h6M9.9 9.9l4.2 4.2M33.9 33.9l4.2 4.2M9.9 38.1l4.2-4.2M33.9 14.1l4.2-4.2" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></span>
           <b>لوحة التحكم</b>
-          <span>للمعلمين: الأسئلة والدوري والتحكم المباشر</span>
+          <span>للمعلمين: الفصول والأسئلة، والدوري، والتحكم المباشر.</span>
           <em>دخول المعلم ←</em>
         </a>
       </section>
 
-      <section class="fields" aria-label="مجالات المسابقة">
-        <h2>مجالات المنافسة</h2>
-        <ul>
-          <li><b>النحو والصرف</b></li>
-          <li><b>البلاغة</b></li>
-          <li><b>الأدب</b></li>
-          <li><b>الإملاء</b></li>
-          <li><b>القراءة</b></li>
-        </ul>
-        <a class="btn btn-ghost" href="/about">تعرّف على البرنامج</a>
+      <section id="fields" class="section fields">
+        <header class="sec-title reveal">
+          <span class="kicker">مجالات المنافسة</span>
+          <h2>خمسة شواطئ على ضفاف لغتنا</h2>
+        </header>
+        <div class="field-grid">
+          <article class="field reveal">
+            <span class="ficon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="9" r="5"/><circle cx="11" cy="37" r="5"/><circle cx="37" cy="37" r="5"/><path d="M24 14v8M24 22L11 32M24 22l13 10" fill="none"/></svg></span>
+            <h3>النحو والصرف</h3>
+            <p>الإعراب وعلاماته، وأنواع الجمل، والأوزان والمشتقات.</p>
+          </article>
+          <article class="field reveal" style="--d:90ms">
+            <span class="ficon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M40 6C24 8 14 18 10 34l-2 8 6-5c14-3 22-13 26-31z" fill="none"/><path d="M10 34c6-8 12-14 20-20" fill="none"/></svg></span>
+            <h3>البلاغة</h3>
+            <p>التشبيه والاستعارة والكناية وأسرار جمال التعبير.</p>
+          </article>
+          <article class="field reveal" style="--d:180ms">
+            <span class="ficon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 10c6-3 12-3 18 1 6-4 12-4 18-1v28c-6-3-12-3-18 1-6-4-12-4-18-1z" fill="none"/><path d="M24 11v28M31 8v12l3-2 3 2V8" fill="none"/></svg></span>
+            <h3>الأدب</h3>
+            <p>الشعراء والأدباء وروائع النصوص وعصور الأدب.</p>
+          </article>
+          <article class="field reveal" style="--d:270ms">
+            <span class="ficon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M30 6l8 8-20 20-10 2 2-10z" fill="none"/><path d="M26 10l8 8M8 42h32" fill="none"/></svg></span>
+            <h3>الإملاء</h3>
+            <p>رسم الهمزات والألف اللينة والتاء وعلامات الترقيم.</p>
+          </article>
+          <article class="field reveal" style="--d:360ms">
+            <span class="ficon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 24s8-13 20-13 20 13 20 13-8 13-20 13S4 24 4 24z" fill="none"/><circle cx="24" cy="24" r="6" fill="none"/></svg></span>
+            <h3>القراءة</h3>
+            <p>فهم المقروء ومعاني المفردات واستنتاج الأفكار.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="how" class="section how">
+        <header class="sec-title reveal">
+          <span class="kicker">كيف تشارك؟</span>
+          <h2>أربع خطوات وتبدأ المنافسة</h2>
+        </header>
+        <ol class="steps">
+          <li class="step reveal">
+            <span class="sicon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="6" width="14" height="14" rx="2"/><rect x="28" y="6" width="14" height="14" rx="2"/><rect x="6" y="28" width="14" height="14" rx="2"/><path d="M28 28h6v6h-6zM36 36h6v6h-6zM36 28h6M28 40h4"/></svg></span>
+            <b>امسح الرمز</b><span>من شاشة العرض بكاميرا هاتفك.</span>
+          </li>
+          <li class="step reveal" style="--d:120ms">
+            <span class="sicon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="16" r="8"/><path d="M8 42c2-9 8-14 16-14s14 5 16 14"/></svg></span>
+            <b>اختر فصلك</b><span>الصف ثم الفصل، واكتب اسمك.</span>
+          </li>
+          <li class="step reveal" style="--d:240ms">
+            <span class="sicon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M27 4L10 27h12l-3 17 19-24H26z"/></svg></span>
+            <b>أجب بسرعة</b><span>الإجابة الأسرع تمنح نقاطًا أكثر.</span>
+          </li>
+          <li class="step reveal" style="--d:360ms">
+            <span class="sicon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 6h20v12a10 10 0 0 1-20 0zM14 10H6v3a8 8 0 0 0 8 8M34 10h8v3a8 8 0 0 1-8 8M20 30h8v6h-8zM14 42h20"/></svg></span>
+            <b>ارفع راية فصلك</b><span>تابع الترتيب حتى يُتوَّج البطل.</span>
+          </li>
+        </ol>
+      </section>
+
+      <section class="section formats">
+        <header class="sec-title reveal">
+          <span class="kicker">أشكال المنافسة</span>
+          <h2>اختر طريقة التحدي</h2>
+        </header>
+        <div class="format-grid">
+          <article class="format-card reveal">
+            <svg class="format-art" viewBox="0 0 200 110" aria-hidden="true">
+              <g class="bk"><rect x="140" y="8" width="52" height="16" rx="4"/><rect x="140" y="32" width="52" height="16" rx="4"/><rect x="140" y="62" width="52" height="16" rx="4"/><rect x="140" y="86" width="52" height="16" rx="4"/>
+              <rect x="74" y="20" width="52" height="16" rx="4"/><rect x="74" y="74" width="52" height="16" rx="4"/><rect x="8" y="47" width="52" height="16" rx="4" class="win"/></g>
+              <path class="bk-line" d="M140 16h-7v24h7M133 28h-7M140 70h-7v24h7M133 82h-7M74 28h-7v54h7M67 55h-7"/>
+            </svg>
+            <h3>دوري خروج المغلوب</h3>
+            <p>مباريات بين فصلين، والفائز يتأهل حتى النهائي. الإجابة الصحيحة تمنح حتى <b>1000 نقطة</b> بحسب السرعة، مع مكافأة للإجابات المتتالية، ونتيجة الفصل هي متوسط نقاط طلابه.</p>
+          </article>
+          <article class="format-card reveal" style="--d:140ms">
+            <svg class="format-art" viewBox="0 0 200 110" aria-hidden="true">
+              <g class="bars"><rect x="20" y="14" width="160" height="14" rx="7" class="track"/><rect x="20" y="14" width="140" height="14" rx="7" class="fill f1"/>
+              <rect x="20" y="48" width="160" height="14" rx="7" class="track"/><rect x="20" y="48" width="104" height="14" rx="7" class="fill f2"/>
+              <rect x="20" y="82" width="160" height="14" rx="7" class="track"/><rect x="20" y="82" width="70" height="14" rx="7" class="fill f3"/></g>
+            </svg>
+            <h3>مسابقات منفصلة للفصول</h3>
+            <p>يجيب كل فصل عن جميع أسئلته، وتعمل عدة فصول في الوقت نفسه. الإجابة الصحيحة تمنح حتى <b>5 نقاط</b>، وتُرتَّب الفصول بمتوسطها.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="fame" class="section fame">
+        <header class="sec-title reveal">
+          <span class="kicker">لوحة الشرف</span>
+          <h2>أبطال ضفاف العربية</h2>
+        </header>
+        <div class="fame-grid">
+          <div class="fame-card reveal">
+            <h3>الفصول المتوَّجة</h3>
+            <ul id="champions" class="champions"><li class="empty-fame">لم يُتوَّج أي فصل بعد… كن أول الأبطال!</li></ul>
+          </div>
+          <div class="fame-card reveal" style="--d:120ms">
+            <h3>أفضل الطلاب</h3>
+            <div id="podium" class="podium"><p class="empty-fame">تنتظر المنصّة أول المتفوقين!</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="verse-sec">
+        <figure class="verse reveal">
+          <span class="quote" aria-hidden="true">❝</span>
+          <blockquote data-site="verse">أنا البحرُ في أحشائه الدرُّ كامنٌ
+فهل سألوا الغوّاصَ عن صدَفاتي</blockquote>
+          <figcaption data-site="poet">حافظ إبراهيم</figcaption>
+        </figure>
       </section>
     </main>
 
-    <footer class="home-foot">
+    <footer class="foot">
       <div class="waves" aria-hidden="true"><i></i><i></i><i></i></div>
-      <p>مدرسة يزيد بن حاتم الأزدي — برنامج ضفاف العربية</p>
+      <div class="foot-inner">
+        <img src="/static/img/logo-full-light.png" alt="شعار مدرسة يزيد بن حاتم الأزدي" width="1000" height="936">
+        <div>
+          <b data-site="programName">ضفاف العربية</b>
+          <p data-site="schoolName">مدرسة يزيد بن حاتم الأزدي</p>
+          <nav class="foot-links" aria-label="روابط"><a href="/play">الطالب</a><a href="/display">شاشة العرض</a><a href="/admin">لوحة التحكم</a><a href="/about">عن البرنامج</a></nav>
+        </div>
+      </div>
     </footer>
   </div>
 

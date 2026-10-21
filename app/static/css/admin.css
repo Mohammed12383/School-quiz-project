@@ -184,3 +184,22 @@
   .qgrid, .type-pick, .qpreview { grid-template-columns: 1fr; }
   .a-main { padding: 14px 12px 120px; }
 }
+
+/* ---------- additions: checklist, settings, field bars, message */
+.checklist { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.checklist li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: #fbf8f1; font-weight: 700; }
+.checklist .mark { width: 26px; height: 26px; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; font-weight: 900; color: #fff; }
+.checklist li.ok .mark { background: var(--ok); }
+.checklist li.no { background: #fff6e5; color: #7a5200; }
+.checklist li.no .mark { background: var(--warn); }
+.check.setting { display: flex; width: 100%; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: #fbf8f1; }
+.panel-card.stack > .btn { justify-self: start; align-self: flex-start; }
+.check.setting input { margin-top: 4px; }
+.check.setting small { display: block; color: var(--muted); font-weight: 600; font-size: .85rem; }
+.field .hint { font-weight: 600; }
+.field-bars { display: grid; gap: 10px; }
+.fbar { display: grid; grid-template-columns: 130px 1fr 150px; align-items: center; gap: 12px; }
+.fbar .fname { font-weight: 800; color: var(--navy-800); }
+.prog.big { height: 14px; }
+.msg-box { padding-top: 10px; border-top: 1px dashed var(--line); }
+@media (max-width: 640px) { .fbar { grid-template-columns: 1fr; gap: 4px; } }

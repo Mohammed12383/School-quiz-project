@@ -31,9 +31,29 @@ MIN_TIME, MAX_TIME, DEFAULT_TIME = 5, 120, 20
 MAX_QUESTIONS = 200
 MAX_PLAYERS = 5000
 MAX_WRONG = 3
-DISPLAY_MODES = ("auto", "join", "leaderboard", "bracket", "idle")
+DISPLAY_MODES = ("auto", "join", "leaderboard", "bracket", "idle", "message")
 KO_MAX_POINTS = 1000
 CONTEST_MAX_POINTS = 5
+FIELDS = {"nahw": "النحو والصرف", "balagha": "البلاغة", "adab": "الأدب", "imla": "الإملاء", "qiraa": "القراءة"}
+
+DEFAULT_SITE = {
+    "programName": "ضفاف العربية",
+    "schoolName": "مدرسة يزيد بن حاتم الأزدي",
+    "tagline": "مسابقات اللغة العربية بين الفصول",
+    "welcome": "برنامج تربوي ثقافي يحتفي بلغتنا العربية، لغة القرآن والهوية، عبر منافسات حماسية بين الفصول.",
+    "goals": [
+        "الاعتزاز بالعربية وتعزيز انتماء الطلاب إلى لغتهم وهويتهم.",
+        "تنمية المهارات اللغوية في النحو والصرف والبلاغة والإملاء والقراءة بأسلوب ممتع.",
+        "إثراء الذائقة الأدبية والاطلاع على روائع الشعر والنثر العربي.",
+        "روح الفريق والتنافس الشريف بين الفصول.",
+        "توظيف التقنية الحديثة في خدمة تعلّم اللغة العربية.",
+    ],
+    "verse": "أنا البحرُ في أحشائه الدرُّ كامنٌ\nفهل سألوا الغوّاصَ عن صدَفاتي",
+    "poet": "حافظ إبراهيم",
+    "announcement": "",
+}
+SITE_LIMITS = {"programName": 40, "schoolName": 80, "tagline": 100, "welcome": 400,
+               "verse": 200, "poet": 60, "announcement": 200}
 
 _QID = re.compile(r"q[0-9a-f]{10}")
 
@@ -46,6 +66,14 @@ def ms(seconds: float) -> int:
     return max(0, int(seconds * 1000))
 
 
+def default_settings() -> dict:
+    return {
+        "activeTournamentId": None, "displayMode": "auto", "allowLateJoin": False,
+        "countdown": int(COUNTDOWN), "autoReveal": True, "reviewAfterContest": True,
+        "showLeadersOnHome": True, "displayMessage": "", "site": copy.deepcopy(DEFAULT_SITE),
+    }
+
+
 def empty_db() -> dict:
     return {
         "version": 1,
@@ -55,8 +83,26 @@ def empty_db() -> dict:
         "matches": {},
         "history": [],
         "stats": {"players": {}, "questions": {}},
-        "settings": {"activeTournamentId": None, "displayMode": "auto", "allowLateJoin": False},
+        "settings": default_settings(),
     }
+
+
+def clean_site(raw, base: dict | None = None) -> dict:
+    """Validate the editable texts of the site (titles, welcome, goals, verse...)."""
+    site = copy.deepcopy(base if isinstance(base, dict) else DEFAULT_SITE)
+    for k, v in DEFAULT_SITE.items():
+        site.setdefault(k, copy.deepcopy(v))
+    raw = as_dict(raw)
+    for key, limit in SITE_LIMITS.items():
+        if key not in raw:
+            continue
+        value = clean_text(raw[key], limit, multiline=key in ("welcome", "verse", "announcement"))
+        if key in ("programName", "schoolName") and not value:
+            continue  # these two can never be empty
+        site[key] = value
+    if isinstance(raw.get("goals"), list):
+        site["goals"] = [g for g in (clean_text(x, 160) for x in raw["goals"][:8]) if g]
+    return site
 
 
 def idle_contest() -> dict:
@@ -100,6 +146,7 @@ def clean_question(raw, index: int | None = None) -> dict:
         "correct": correct,
         "wrong": wrong,
         "time": to_int(q.get("time"), DEFAULT_TIME, MIN_TIME, MAX_TIME),
+        "field": q.get("field") if q.get("field") in FIELDS else "",
     }
 
 
@@ -138,6 +185,11 @@ def normalize_db(data) -> dict:
     if settings.get("displayMode") in DISPLAY_MODES:
         db["settings"]["displayMode"] = settings["displayMode"]
     db["settings"]["allowLateJoin"] = bool(settings.get("allowLateJoin", False))
+    db["settings"]["countdown"] = to_int(settings.get("countdown"), int(COUNTDOWN), 3, 10)
+    for key in ("autoReveal", "reviewAfterContest", "showLeadersOnHome"):
+        db["settings"][key] = bool(settings.get(key, True))
+    db["settings"]["displayMessage"] = clean_text(settings.get("displayMessage"), 200, multiline=True)
+    db["settings"]["site"] = clean_site(settings.get("site"))
 
     for cid, c in as_dict(data.get("classes")).items():
         if not isinstance(c, dict) or not isinstance(cid, str):
@@ -256,6 +308,7 @@ class LiveMatch:
         self.answers: list[dict[str, dict]] = []
         self.perms: dict[str, list[int]] = {}
         self.display_perm: dict[str, list[int]] = {"A": [], "B": []}
+        self.time_up = False  # time ended but the teacher reveals manually
 
     def side_of_class(self, cid: str) -> str | None:
         if cid == self.cls["A"]:
@@ -284,6 +337,8 @@ class Game:
         self.dirty_admin_data = True
         self._last_display = 0.0
         self._last_admin_live = 0.0
+        self._last_admin_players = 0.0
+        self.dirty_admin_players = True
         self._last_create: dict[str, float] = {}
 
     # ------------------------------------------------------------------ basics
@@ -337,6 +392,9 @@ class Game:
     def class_name(self, cid) -> str:
         c = self.classes.get(cid)
         return c["name"] if c else "—"
+
+    def countdown_seconds(self) -> float:
+        return float(self.settings.get("countdown") or COUNTDOWN)
 
     def active_tournament(self) -> dict | None:
         return self.tournaments.get(self.settings.get("activeTournamentId"))
@@ -442,6 +500,7 @@ class Game:
             self._last_create[sid] = t
             player = {"id": new_id("p"), "token": new_token(), "name": name, "classId": cid, "createdAt": now_ts()}
             self.players[player["id"]] = player
+            self.dirty_admin_players = True
             self.save()
         if info.get("pid") and info["pid"] != player["id"]:
             self._detach_player(sid)
@@ -514,6 +573,7 @@ class Game:
         self.player_sids.pop(pid, None)
         self.players.pop(pid, None)
         self.dirty_players.discard(pid)
+        self.dirty_admin_players = True
 
     def player_sync(self, sid: str) -> dict:
         pid = self._sid_player(sid)
@@ -557,6 +617,130 @@ class Game:
                 return self._contest_answer(t, p["classId"], rec, pid, data)
         raise GameError("لا يوجد سؤال مفتوح الآن", "late")
 
+    # ------------------------------------------------------- students (admin)
+    def admin_players(self) -> dict:
+        def order(r):
+            c = self.classes.get(r["classId"]) or {}
+            return (c.get("grade", 0), c.get("section", 0), r["name"])
+
+        rows = []
+        for pid, p in self.players.items():
+            sp = self.stats["players"].get(pid) or {}
+            rows.append({"id": pid, "name": p["name"], "classId": p["classId"], "className": self.class_name(p["classId"]),
+                         "createdAt": p.get("createdAt"), "answered": sp.get("answered", 0), "correct": sp.get("correct", 0)})
+        rows.sort(key=order)
+        return {"players": rows}
+
+    def _player_busy(self, pid: str) -> bool:
+        L = self.live
+        if L and pid in L.roster and not L.roster[pid]["kicked"] and L.phase not in ("lobby", "done"):
+            return True
+        t = self.active_tournament()
+        if t and t["type"] == "separate":
+            for rec in t["contests"].values():
+                pp = rec["players"].get(pid)
+                if rec["status"] == "running" and pp and not pp["kicked"] and not pp["finished"]:
+                    return True
+        return False
+
+    def _admin_player(self, data) -> tuple[str, dict]:
+        pid = as_dict(data).get("playerId")
+        p = self.players.get(pid) if isinstance(pid, str) else None
+        if not p:
+            raise GameError("الطالب غير موجود")
+        return pid, p
+
+    def admin_player_rename(self, data) -> dict:
+        pid, p = self._admin_player(data)
+        name = clean_text(as_dict(data).get("name"), 30)
+        if len(name) < 2 or not has_letters(name, 2):
+            raise GameError("اكتب اسمًا صحيحًا (حرفان على الأقل)")
+        p["name"] = name
+        if self.live and pid in self.live.roster:
+            self.live.roster[pid]["name"] = name
+        for t in self.tournaments.values():
+            for rec in (t.get("contests") or {}).values():
+                if pid in rec["players"]:
+                    rec["players"][pid]["name"] = name
+        if pid in self.stats["players"]:
+            self.stats["players"][pid]["name"] = name
+        self.notify_player(pid, f"عدّل المعلم اسمك إلى «{name}»")
+        self.dirty_players.add(pid)
+        self.dirty_admin_players = True
+        self.touch_data()
+        return {"ok": True}
+
+    def admin_player_move(self, data) -> dict:
+        pid, p = self._admin_player(data)
+        cid = as_dict(data).get("classId")
+        if cid not in self.classes:
+            raise GameError("اختر الفصل الجديد")
+        if p["classId"] == cid:
+            return {"ok": True}
+        if self._player_busy(pid):
+            raise GameError("الطالب يشارك الآن في مسابقة جارية. استبعده أولًا أو انتظر حتى تنتهي.")
+        L = self.live
+        if L and pid in L.roster and L.phase == "lobby":
+            del L.roster[pid]
+            L.lobby_members.discard(pid)
+        t = self.active_tournament()
+        if t and t["type"] == "separate":
+            rec = t["contests"].get(p["classId"])
+            if rec and rec["status"] == "lobby":
+                rec["players"].pop(pid, None)
+        p["classId"] = cid
+        if self.online(pid):
+            self._player_online(pid)
+        self.notify_player(pid, f"نقلك المعلم إلى فصل {self.class_name(cid)}")
+        self.dirty_players.add(pid)
+        self.dirty_admin_players = True
+        self.touch_live()
+        self.save()
+        return {"ok": True}
+
+    def admin_player_delete(self, data) -> dict:
+        raw = as_dict(data).get("playerIds")
+        ids = [x for x in dict.fromkeys(raw if isinstance(raw, list) else []) if isinstance(x, str) and x in self.players]
+        if not ids:
+            raise GameError("اختر طالبًا واحدًا على الأقل")
+        t = self.active_tournament()
+        for pid in ids:
+            L = self.live
+            if L and pid in L.roster:
+                if L.phase == "lobby":
+                    del L.roster[pid]
+                    L.lobby_members.discard(pid)
+                elif L.phase != "done":
+                    L.roster[pid]["kicked"] = True
+            if t and t["type"] == "separate":
+                for cid, rec in t["contests"].items():
+                    pp = rec["players"].get(pid)
+                    if not pp:
+                        continue
+                    if rec["status"] == "lobby":
+                        rec["players"].pop(pid, None)
+                    elif rec["status"] == "running":
+                        pp["kicked"] = True
+                        self.crt.get(f"{t['id']}:{cid}", {}).pop(pid, None)
+                        self._contest_maybe_done(t, cid, rec)
+            self._logout_player(pid)
+        self.touch_data()
+        return {"ok": True, "count": len(ids)}
+
+    def admin_players_clear(self, data) -> dict:
+        data = as_dict(data)
+        busy = self._busy()
+        if busy:
+            raise GameError(busy)
+        cid = data.get("classId")
+        offline_only = bool(data.get("offlineOnly"))
+        ids = [pid for pid, p in self.players.items()
+               if (not cid or p["classId"] == cid) and not (offline_only and self.online(pid))]
+        for pid in ids:
+            self._logout_player(pid)
+        self.touch_data()
+        return {"ok": True, "count": len(ids)}
+
     # ---------------------------------------------------------------- classes
     def class_create(self, data) -> dict:
         data = as_dict(data)
@@ -593,6 +777,25 @@ class Game:
             self._logout_player(pid)
         del self.classes[cid]
         self.touch_data()
+        return {"ok": True}
+
+    def class_update(self, data) -> dict:
+        data = as_dict(data)
+        c = self.classes.get(data.get("classId"))
+        if not c:
+            raise GameError("الفصل غير موجود")
+        grade = to_int(data.get("grade"), c["grade"], 0, 99)
+        section = to_int(data.get("section"), c["section"], 0, 99)
+        if grade not in GRADES:
+            raise GameError("اختر الصف (من التاسع إلى الثاني عشر)")
+        if not 1 <= section <= 30:
+            raise GameError("رقم الشعبة من 1 إلى 30")
+        if any(o["id"] != c["id"] and o["grade"] == grade and o["section"] == section for o in self.classes.values()):
+            raise GameError(f"الفصل {grade}/{section} موجود مسبقًا")
+        c.update(grade=grade, section=section, name=f"{grade}/{section}")
+        self.touch_data()
+        self._dirty_all_players()
+        self.dirty_admin_players = True
         return {"ok": True}
 
     def class_save_questions(self, data) -> dict:
@@ -820,6 +1023,80 @@ class Game:
         self.touch_data()
         return {"ok": True}
 
+    def _clean_ids(self, raw) -> list[str]:
+        return [c for c in dict.fromkeys(raw if isinstance(raw, list) else []) if isinstance(c, str) and c in self.classes]
+
+    def tournament_update(self, data) -> dict:
+        data = as_dict(data)
+        t = self.tournaments.get(data.get("tournamentId"))
+        if not t:
+            raise GameError("المسابقة غير موجودة")
+        if "name" in data:
+            name = clean_text(data.get("name"), 60)
+            if not name:
+                raise GameError("اكتب اسم المسابقة")
+            t["name"] = name
+        if t["type"] == "knockout":
+            if "questionsPerMatch" in data:
+                if self.live and self.live.tid == t["id"] and self.live.phase != "done":
+                    raise GameError("لا يمكن تغيير عدد الأسئلة أثناء مباراة جارية")
+                t["questionsPerMatch"] = to_int(data.get("questionsPerMatch"), t["questionsPerMatch"], 1, 50)
+            pairing = data.get("pairing") if data.get("pairing") in ("grade", "random") else None
+            if "classIds" in data or pairing or data.get("redraw"):
+                ids = self._clean_ids(data.get("classIds")) if "classIds" in data else list(t["classIds"])
+                self._rebuild_bracket(t, ids, pairing or t.get("pairing", "grade"))
+        elif "classIds" in data:
+            ids = self._clean_ids(data.get("classIds"))
+            if not ids:
+                raise GameError("اختر فصلًا واحدًا على الأقل")
+            for cid in t["classIds"]:
+                if cid not in ids and t["contests"].get(cid, {}).get("status") in ("lobby", "running"):
+                    raise GameError(f"مسابقة الفصل {self.class_name(cid)} مفتوحة الآن. أنهِها قبل إزالته.")
+            for cid in list(t["contests"]):
+                if cid not in ids:
+                    t["contests"].pop(cid, None)
+                    self.crt.pop(f"{t['id']}:{cid}", None)
+            for cid in ids:
+                t["contests"].setdefault(cid, idle_contest())
+            t["classIds"] = ids
+        self.touch_data()
+        self._dirty_all_players()
+        return {"ok": True}
+
+    def _rebuild_bracket(self, t: dict, class_ids: list[str], pairing: str) -> None:
+        if len(class_ids) < 2:
+            raise GameError("اختر فصلين على الأقل لدوري خروج المغلوب")
+        if len(class_ids) > 64:
+            raise GameError("الحد الأقصى 64 فصلًا")
+        mine = [m for m in self.matches.values() if m["tournamentId"] == t["id"]]
+        if any(not m["bye"] and m["status"] != "pending" for m in mine):
+            raise GameError("لا يمكن إعادة إنشاء الجدول بعد بدء أي مباراة. أعد ضبط المباريات الملعوبة أولًا.")
+        for m in mine:
+            del self.matches[m["id"]]
+        t.update({"classIds": class_ids, "pairing": pairing, "rounds": [], "championId": None,
+                  "status": "running", "usedQuestions": {}})
+        self._build_bracket(t, pairing)
+
+    def match_set_teams(self, data) -> dict:
+        data = as_dict(data)
+        m, t = self._knockout_match(data.get("matchId"))
+        if m["bye"] or m["status"] != "pending":
+            raise GameError("يمكن تعديل طرفي المباراة قبل لعبها فقط")
+        a, b = data.get("classA"), data.get("classB")
+        if a not in t["classIds"] or b not in t["classIds"]:
+            raise GameError("اختر فصلين من الفصول المشاركة")
+        if a == b:
+            raise GameError("اختر فصلين مختلفين")
+        for other_id in t["rounds"][m["round"]]:
+            o = self.matches.get(other_id)
+            if not o or o["id"] == m["id"]:
+                continue
+            if {a, b} & ({o["classA"], o["classB"]} - {None}):
+                raise GameError(f"أحد الفصلين موجود في مباراة أخرى في {m['roundName']}")
+        m["classA"], m["classB"] = a, b
+        self.touch_data()
+        return {"ok": True}
+
     def _dirty_all_players(self) -> None:
         self.dirty_players.update(self.player_sids.keys())
 
@@ -912,7 +1189,7 @@ class Game:
                 del L.roster[pid]
         L.phase = "countdown"
         L.qi = 0
-        L.phase_end = time.monotonic() + COUNTDOWN
+        L.phase_end = time.monotonic() + self.countdown_seconds()
         m["status"] = "live"
         self.dirty_players.update(L.roster.keys())
         self.touch_data()
@@ -922,6 +1199,7 @@ class Game:
         L = self.live
         L.phase = "question"
         L.q_start = now
+        L.time_up = False
         while len(L.answers) <= L.qi:
             L.answers.append({})
         for side in "AB":
@@ -976,7 +1254,7 @@ class Game:
         self.dirty_players.add(pid)
         self.touch_live()
         online = [p for p, x in L.active() if self.online(p)]
-        if online and all(p in answers for p in online):
+        if self.settings.get("autoReveal", True) and online and all(p in answers for p in online):
             self._reveal(now)
         return {"ok": True}
 
@@ -1010,7 +1288,7 @@ class Game:
         if L.qi + 1 < L.n:
             L.qi += 1
             L.phase = "countdown"
-            L.phase_end = time.monotonic() + COUNTDOWN
+            L.phase_end = time.monotonic() + self.countdown_seconds()
             self.dirty_players.update(L.roster.keys())
             self.touch_live()
         else:
@@ -1191,7 +1469,7 @@ class Game:
             L.roster[pid]["kicked"] = True
             L.perms.pop(pid, None)
             done = True
-            if L.phase == "question":
+            if L.phase == "question" and self.settings.get("autoReveal", True):
                 online = [p for p, _ in L.active() if self.online(p)]
                 if online and all(p in L.answers[L.qi] for p in online):
                     self._reveal(time.monotonic())
@@ -1421,7 +1699,9 @@ class Game:
         rec["result"] = contest_score(rec)
         self.crt.pop(f"{t['id']}:{cid}", None)
         self._history_contest(t, cid, rec)
-        self.dirty_players.update(rec["players"].keys())
+        # every finished class may now see its review (it waits for all contests to end)
+        for other in t["contests"].values():
+            self.dirty_players.update(other["players"].keys())
         self.touch_data()
 
     def _history_contest(self, t: dict, cid: str, rec: dict) -> None:
@@ -1439,7 +1719,11 @@ class Game:
             if L.phase == "countdown" and now >= L.phase_end:
                 self._begin_question(now)
             elif L.phase == "question" and now >= max(L.deadline.values()) + GRACE:
-                self._reveal(now)
+                if self.settings.get("autoReveal", True):
+                    self._reveal(now)
+                elif not L.time_up:
+                    L.time_up = True
+                    self.touch_live()
         for key in list(self.crt):
             tid, cid = key.split(":", 1)
             t = self.tournaments.get(tid)
@@ -1473,10 +1757,11 @@ class Game:
         sp[kind] = round(sp.get(kind, 0) + points, 2)
         sq = self.stats["questions"].setdefault(q["id"], {"text": q["text"], "classId": cid, "answered": 0, "correct": 0})
         sq["text"] = q["text"]
+        sq["field"] = q.get("field", "")
         sq["answered"] += 1
         sq["correct"] += int(correct)
 
-    def stats_summary(self) -> dict:
+    def student_stat_rows(self) -> list[dict]:
         players = []
         for pid, sp in self.stats["players"].items():
             ans = sp.get("answered", 0)
@@ -1487,11 +1772,16 @@ class Game:
                 "koPoints": sp.get("koPoints", 0), "contestPoints": sp.get("contestPoints", 0),
             })
         players.sort(key=lambda r: (-r["correct"], -r["accuracy"], -r["koPoints"], -r["contestPoints"]))
+        return players
+
+    def stats_summary(self) -> dict:
+        players = self.student_stat_rows()
         hardest = []
         for qid, sq in self.stats["questions"].items():
             if sq.get("answered", 0) >= 1:
                 hardest.append({
                     "text": sq.get("text", ""), "className": self.class_name(sq.get("classId")),
+                    "field": FIELDS.get(sq.get("field") or "", ""),
                     "answered": sq["answered"], "correct": sq.get("correct", 0),
                     "rate": round(sq.get("correct", 0) / sq["answered"], 3),
                 })
@@ -1528,8 +1818,16 @@ class Game:
                 "contestAvg": round(r["contestAvgSum"] / r["contests"], 2) if r["contests"] else None,
             })
         table.sort(key=lambda r: (-r["koWins"], -(r["contestAvg"] or 0), -(r["koAvg"] or 0)))
+        fields = {k: {"key": k, "name": v, "answered": 0, "correct": 0} for k, v in FIELDS.items()}
+        for sq in self.stats["questions"].values():
+            f = fields.get(sq.get("field") or "")
+            if f:
+                f["answered"] += sq.get("answered", 0)
+                f["correct"] += sq.get("correct", 0)
+        by_field = [{**f, "rate": round(f["correct"] / f["answered"], 3) if f["answered"] else None} for f in fields.values()]
         return {
             "topStudents": players[:30],
+            "byField": by_field,
             "hardest": hardest[:20],
             "history": list(reversed(self.db["history"]))[:100],
             "standings": table,
@@ -1591,6 +1889,111 @@ class Game:
         self.touch_data()
         return {"ok": True}
 
+    def settings_update(self, data) -> dict:
+        data = as_dict(data)
+        s = self.settings
+        if "countdown" in data:
+            s["countdown"] = to_int(data["countdown"], s.get("countdown", 3), 3, 10)
+        for key in ("autoReveal", "reviewAfterContest", "showLeadersOnHome", "allowLateJoin"):
+            if key in data:
+                s[key] = bool(data[key])
+        self.touch_data()
+        self._dirty_all_players()
+        return {"ok": True}
+
+    def site_update(self, data) -> dict:
+        self.settings["site"] = clean_site(data, self.settings.get("site"))
+        self.touch_data()
+        return {"ok": True}
+
+    def display_message(self, data) -> dict:
+        data = as_dict(data)
+        if data.get("show", True):
+            text = clean_text(data.get("text"), 200, multiline=True)
+            if not text:
+                raise GameError("اكتب الرسالة أولًا")
+            self.settings["displayMessage"] = text
+            self.settings["displayMode"] = "message"
+        elif self.settings.get("displayMode") == "message":
+            self.settings["displayMode"] = "auto"
+        self.touch_data()
+        return {"ok": True}
+
+    # ------------------------------------------------------------ public info
+    def public_site(self) -> dict:
+        s = self.settings
+        live = None
+        L = self.live
+        if L and L.phase != "done":
+            m = self.matches.get(L.match_id) or {}
+            live = {"kind": "knockout", "round": m.get("roundName", ""), "phase": L.phase,
+                    "A": self.class_name(L.cls["A"]), "B": self.class_name(L.cls["B"])}
+        else:
+            t = self.active_tournament()
+            if t and t["type"] == "separate":
+                running = [self.class_name(c) for c in t["classIds"] if t["contests"].get(c, {}).get("status") in ("lobby", "running")]
+                if running:
+                    live = {"kind": "contest", "title": t["name"], "classes": running}
+        champions, contest_leaders = [], []
+        for t in sorted(self.tournaments.values(), key=lambda x: -(x.get("createdAt") or 0)):
+            if t["type"] == "knockout" and t.get("championId"):
+                champions.append({"tournament": t["name"], "name": self.class_name(t["championId"])})
+            elif t["type"] == "separate":
+                done = [r for r in self._contests_public(t) if r["rank"] == 1]
+                if done:
+                    contest_leaders.append({"tournament": t["name"], "name": done[0]["name"], "avg": done[0]["avg"]})
+        return {
+            "site": copy.deepcopy(s.get("site") or DEFAULT_SITE),
+            "stats": {
+                "classes": len(self.classes),
+                "questions": sum(len(c["questions"]) for c in self.classes.values()),
+                "tournaments": len(self.tournaments),
+                "answers": sum(sp.get("answered", 0) for sp in self.stats["players"].values()),
+                "students": len(self.players),
+            },
+            "live": live,
+            "champions": champions[:6],
+            "contestLeaders": contest_leaders[:6],
+            "topStudents": [{"name": r["name"], "className": r["className"], "correct": r["correct"]}
+                            for r in self._top_students(5)] if s.get("showLeadersOnHome", True) else [],
+        }
+
+    def csv_table(self, kind: str, class_id: str | None = None) -> tuple[list[str], list[list]]:
+        if kind == "students":
+            head = ["الطالب", "الفصل", "عدد الإجابات", "الإجابات الصحيحة", "الدقة %", "نقاط الدوري", "نقاط المسابقات"]
+            rows = [[r["name"], r["className"], r["answered"], r["correct"], round(r["accuracy"] * 100),
+                     r["koPoints"], r["contestPoints"]] for r in self.student_stat_rows()]
+            return head, rows
+        if kind == "history":
+            head = ["التاريخ", "المسابقة", "النوع", "الجولة", "الفصل", "النتيجة", "المنافس", "نتيجة المنافس",
+                    "الفائز", "الدقة %", "عدد الطلاب"]
+            rows = []
+            for h in self.db["history"]:
+                at = time.strftime("%Y-%m-%d %H:%M", time.localtime(h.get("at") or 0))
+                if h.get("kind") == "knockout":
+                    a, b = h.get("A") or {}, h.get("B") or {}
+                    rows.append([at, h.get("tournament", ""), "خروج المغلوب", h.get("round", ""), a.get("name", ""),
+                                 a.get("avg", ""), b.get("name", ""), b.get("avg", ""), h.get("winner") or "تعادل",
+                                 round((a.get("accuracy") or 0) * 100), (a.get("players") or 0) + (b.get("players") or 0)])
+                else:
+                    rows.append([at, h.get("tournament", ""), "فصول منفصلة", "", h.get("class", ""), h.get("avg", ""),
+                                 "", "", "", round((h.get("accuracy") or 0) * 100), h.get("players", 0)])
+            return head, rows
+        if kind == "players":
+            head = ["الطالب", "الفصل", "تاريخ التسجيل"]
+            rows = [[r["name"], r["className"], time.strftime("%Y-%m-%d", time.localtime(r["createdAt"] or 0))]
+                    for r in self.admin_players()["players"]]
+            return head, rows
+        if kind == "questions":
+            c = self.classes.get(class_id or "")
+            if not c:
+                raise GameError("الفصل غير موجود")
+            head = ["السؤال", "الإجابة الصحيحة", "خيار خاطئ 1", "خيار خاطئ 2", "خيار خاطئ 3", "الزمن", "المجال"]
+            rows = [[q["text"], q["correct"], *(q["wrong"] + ["", "", ""])[:3], q["time"], FIELDS.get(q.get("field"), "")]
+                    for q in c["questions"]]
+            return head, rows
+        raise GameError("نوع غير معروف")
+
     # ----------------------------------------------------------------- views
     def player_view(self, pid: str) -> dict:
         p = self.players.get(pid)
@@ -1644,7 +2047,7 @@ class Game:
                 perm = L.perms[pid] = shuffled(len(options_of(q)))
             opts = options_of(q)
             return {**head, "phase": "question", "question": {
-                "text": q["text"], "options": [opts[i] for i in perm],
+                "text": q["text"], "options": [opts[i] for i in perm], "field": FIELDS.get(q.get("field"), ""),
                 "durationMs": q["time"] * 1000, "remainingMs": ms(L.deadline[side] - now)}}
         ranking = [(p, x["points"]) for p, x in L.active()]
         rank, of = self._rank(ranking, pid)
@@ -1680,19 +2083,37 @@ class Game:
             res = rec.get("result") if rec["status"] == "finished" else None
             return {**head, "phase": "finished", "avg5": round(pp["points"] / n, 2) if n else 0,
                     "rank": rank, "of": of, "classDone": rec["status"] == "finished",
-                    "classAvg": res["avg"] if res else None, "time": pp["time"]}
+                    "classAvg": res["avg"] if res else None, "time": pp["time"],
+                    "review": self._contest_review(t, rec, pp)}
         rt = self.crt.get(f"{t['id']}:{cid}", {}).get(pid) or {}
         now = time.monotonic()
         if rt.get("sentAt") is not None:
             q = rec["questions"][rt["qidx"]]
             opts = options_of(q)
             return {**head, "phase": "question", "question": {
-                "text": q["text"], "options": [opts[i] for i in rt["perm"]],
+                "text": q["text"], "options": [opts[i] for i in rt["perm"]], "field": FIELDS.get(q.get("field"), ""),
                 "durationMs": q["time"] * 1000, "remainingMs": ms(rt["deadline"] - now)}}
         if rt.get("last"):
             return {**head, "phase": "feedback", "last": rt["last"],
                     "nextMs": ms(rt["nextAt"] - now) if rt.get("nextAt") else None}
         return {**head, "phase": "loading"}
+
+    def _contest_review(self, t: dict, rec: dict, pp: dict) -> list[dict] | None:
+        """Correct answers of the student's mistakes, shown only when no contest is still running."""
+        if rec["status"] != "finished" or not self.settings.get("reviewAfterContest", True):
+            return None
+        if any(r["status"] in ("lobby", "running") for r in t["contests"].values()):
+            return None
+        out = []
+        for a in pp["answers"]:
+            if a.get("ok") or not 0 <= a.get("q", -1) < len(rec["questions"]):
+                continue
+            q = rec["questions"][a["q"]]
+            opts = options_of(q)
+            c = a.get("c")
+            out.append({"text": q["text"], "correct": q["correct"],
+                        "yours": opts[c] if isinstance(c, int) and 0 <= c < len(opts) else None})
+        return out[:60]
 
     def _match_public(self, m: dict) -> dict:
         res = m.get("result") or {}
@@ -1782,6 +2203,7 @@ class Game:
                 s["question"] = {
                     "text": q["text"], "options": [opts[i] for i in dp], "durationMs": q["time"] * 1000,
                     "remainingMs": ms(L.deadline[side] - now) if L.phase == "question" else 0,
+                    "field": FIELDS.get(q.get("field"), ""),
                 }
                 s["answered"] = sum(1 for p, _ in es if p in ans)
                 s["expected"] = max(len(online), s["answered"])
@@ -1804,7 +2226,7 @@ class Game:
             sides.append(s)
         out = {
             "matchId": L.match_id, "roundName": m.get("roundName", ""), "phase": L.phase,
-            "qIndex": L.qi, "qTotal": L.n,
+            "qIndex": L.qi, "qTotal": L.n, "timeUp": L.time_up,
             "remainingMs": ms(L.phase_end - now) if L.phase == "countdown" else 0,
             "sides": sides, "top": self._top_players(L, 5),
         }
@@ -1860,6 +2282,8 @@ class Game:
             "live": self._live_public(admin=False),
             "leaders": self._leaders(t),
             "onlineTotal": len(self.player_sids),
+            "site": {k: v for k, v in (self.settings.get("site") or DEFAULT_SITE).items() if k != "goals"},
+            "message": self.settings.get("displayMessage", ""),
         }
 
     def admin_data(self, password_info: dict) -> dict:
@@ -1874,6 +2298,8 @@ class Game:
             "password": password_info,
             "limits": {"minTime": MIN_TIME, "maxTime": MAX_TIME, "defaultTime": DEFAULT_TIME,
                        "maxQuestions": MAX_QUESTIONS, "maxWrong": MAX_WRONG},
+            "fields": FIELDS,
+            "defaultSite": DEFAULT_SITE,
         }
 
     def admin_live(self) -> dict:
@@ -1884,6 +2310,7 @@ class Game:
             "tournament": self._tournament_public(t, admin=True) if t else None,
             "online": self.online_by_class(),
             "onlineTotal": len(self.player_sids),
+            "onlineIds": list(self.player_sids),
             "displays": sum(1 for i in self.sids.values() if i.get("role") == "display"),
         }
 
@@ -1895,7 +2322,8 @@ class Game:
         for side in "AB":
             if L.qi < len(L.questions[side]):
                 q = L.questions[side][L.qi]
-                out[side] = {"text": q["text"], "correct": q["correct"], "time": q["time"]}
+                out[side] = {"text": q["text"], "correct": q["correct"], "time": q["time"],
+                             "field": FIELDS.get(q.get("field"), "")}
         return out
 
     # ----------------------------------------------------------------- drain
@@ -1926,5 +2354,10 @@ class Game:
             self._last_admin_live = now
             if admins:
                 out.append(("admin:live", self.admin_live(), "admin"))
+        if self.dirty_admin_players and (force or now - self._last_admin_players >= 1.0):
+            self.dirty_admin_players = False
+            self._last_admin_players = now
+            if admins:
+                out.append(("admin:players", self.admin_players(), "admin"))
         return out
 
