@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#192552">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>الطالب | ضفاف العربية</title>
+  <link rel="icon" href="/static/img/favicon.png">
+  <link rel="preload" href="/static/fonts/cairo-arabic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/play.css">
+</head>
+<body class="play">
+  <header class="play-head">
+    <a class="brand" href="/#home" aria-label="الصفحة الرئيسية">
+      <img src="/static/img/logo-mark-light.png" alt="" width="52" height="40">
+      <span><b>ضفاف العربية</b></span>
+    </a>
+    <div id="who" class="who" hidden>
+      <span id="whoName" class="who-name"></span>
+      <span id="whoClass" class="who-class num"></span>
+      <button id="leaveBtn" class="who-leave" type="button" aria-label="تغيير الحساب" title="تغيير الحساب">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5M15 8l-4 4 4 4M11 12h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="app" class="play-main" aria-live="polite">
+    <div class="screen center"><div class="spinner" aria-label="جارٍ التحميل"></div></div>
+  </main>
+
+  <script src="/static/vendor/socket.io.min.js"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/play.js"></script>
+</body>
+</html>

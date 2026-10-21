@@ -1,0 +1,9 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+app/admin_password.txt
+.DS_Store
+Thumbs.db

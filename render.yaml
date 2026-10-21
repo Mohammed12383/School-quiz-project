@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: difaf-alarabiya
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: ADMIN_PASSWORD
+        sync: false   # Render asks you to type the admin password when you create the service
+    # A persistent disk keeps the data across restarts, but it needs a paid plan.
+    # Remove "plan: free" above and uncomment these lines; the app uses /data automatically.
+    # disk:
+    #   name: difaf-data
+    #   mountPath: /data
+    #   sizeGB: 1

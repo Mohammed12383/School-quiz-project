@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1231">
+  <title>شاشة العرض | ضفاف العربية</title>
+  <link rel="icon" href="/static/img/favicon.png">
+  <link rel="preload" href="/static/fonts/cairo-arabic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/display.css">
+</head>
+<body class="display">
+  <div class="bg-pages" aria-hidden="true"></div>
+
+  <header class="d-top">
+    <div class="d-brand">
+      <img src="/static/img/logo-mark-light.png" alt="" width="104" height="80">
+      <div>
+        <b>ضفاف العربية</b>
+        <small>مدرسة يزيد بن حاتم الأزدي</small>
+      </div>
+    </div>
+    <div id="dTitle" class="d-title"></div>
+    <div class="d-join" id="dJoin">
+      <div class="d-join-text">
+        <small>انضم من هاتفك</small>
+        <b id="joinUrlSmall" class="num"></b>
+      </div>
+      <img id="qrSmall" alt="رمز QR للانضمام" width="84" height="84">
+    </div>
+  </header>
+
+  <main id="stage" class="d-stage" aria-live="polite"></main>
+
+  <div class="waves d-waves" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <div id="controls" class="d-controls">
+    <button id="btnOpening" class="btn btn-gold btn-sm" type="button">بدء الافتتاح</button>
+    <button id="btnSound" class="btn btn-light btn-sm" type="button">الصوت: مفعّل</button>
+    <button id="btnFull" class="btn btn-light btn-sm" type="button">ملء الشاشة</button>
+  </div>
+
+  <div id="overlay" class="d-overlay" hidden></div>
+
+  <script src="/static/vendor/socket.io.min.js"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/display.js"></script>
+</body>
+</html>

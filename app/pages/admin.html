@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#192552">
+  <meta name="robots" content="noindex">
+  <title>لوحة التحكم | ضفاف العربية</title>
+  <link rel="icon" href="/static/img/favicon.png">
+  <link rel="preload" href="/static/fonts/cairo-arabic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body class="admin">
+
+  <div id="login" class="login" hidden>
+    <form id="loginForm" class="card pages login-card" autocomplete="off">
+      <img src="/static/img/logo-full.png" alt="شعار مدرسة يزيد بن حاتم الأزدي" width="200" height="187">
+      <h1>لوحة تحكم المعلم</h1>
+      <p class="muted">ضفاف العربية — أدخل كلمة المرور للمتابعة</p>
+      <label class="field">
+        <span>كلمة المرور</span>
+        <input id="pw" class="input" type="password" autocomplete="current-password" required dir="ltr">
+      </label>
+      <p id="loginMsg" class="login-msg" role="alert"></p>
+      <button class="btn btn-lg btn-block" type="submit">دخول</button>
+      <a class="muted small-link" href="/#home">العودة إلى الصفحة الرئيسية</a>
+    </form>
+  </div>
+
+  <div id="shell" class="shell" hidden>
+    <header class="a-top">
+      <a class="brand" href="/#home" target="_blank" rel="noopener">
+        <img src="/static/img/logo-mark-light.png" alt="" width="56" height="43">
+        <span><b>ضفاف العربية</b><small>لوحة التحكم</small></span>
+      </a>
+      <nav class="a-tabs" role="tablist" aria-label="الأقسام">
+        <button role="tab" data-tab="classes">الفصول والأسئلة</button>
+        <button role="tab" data-tab="league">الدوري والجولات</button>
+        <button role="tab" data-tab="live">التحكم المباشر</button>
+        <button role="tab" data-tab="stats">الإحصائيات</button>
+        <button role="tab" data-tab="settings">الإعدادات</button>
+      </nav>
+      <div class="a-status">
+        <span id="stOnline" class="chip navy">0 طالب متصل</span>
+        <span id="stDisplay" class="chip">لا شاشة</span>
+      </div>
+    </header>
+    <div id="banner" class="banner" hidden></div>
+    <main class="a-main">
+      <section id="tab-classes" class="tab" hidden></section>
+      <section id="tab-league" class="tab" hidden></section>
+      <section id="tab-live" class="tab" hidden></section>
+      <section id="tab-stats" class="tab" hidden></section>
+      <section id="tab-settings" class="tab" hidden></section>
+    </main>
+  </div>
+
+  <script src="/static/vendor/socket.io.min.js"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#192552">
+  <title>ضفاف العربية | مدرسة يزيد بن حاتم الأزدي</title>
+  <meta name="description" content="ضفاف العربية: برنامج تربوي ثقافي للمسابقات بين الفصول في النحو والصرف والبلاغة والأدب والإملاء والقراءة.">
+  <link rel="icon" href="/static/img/favicon.png">
+  <link rel="preload" href="/static/fonts/cairo-arabic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/landing.css">
+</head>
+<body class="landing">
+
+  <!-- 1) the closed book: one button -->
+  <section id="gate" class="gate" aria-label="بوابة الموقع">
+    <div class="cover cover-gold" aria-hidden="true"></div>
+    <div class="cover cover-navy" aria-hidden="true"></div>
+    <div class="gate-inner">
+      <img class="gate-logo" src="/static/img/logo-mark-light.png" alt="شعار مدرسة يزيد بن حاتم الأزدي" width="360" height="277">
+      <p class="gate-school">مدرسة يزيد بن حاتم الأزدي</p>
+      <h1 class="gate-title">ضفاف العربية</h1>
+      <button id="openBtn" class="btn btn-gold btn-xl gate-btn" type="button">افتح الموقع</button>
+    </div>
+    <div class="waves" aria-hidden="true"><i></i><i></i><i></i></div>
+  </section>
+
+  <!-- 2) welcome + goals -->
+  <section id="welcome" class="welcome" hidden aria-live="polite">
+    <div class="welcome-card card pages">
+      <img class="welcome-logo" src="/static/img/logo-mark.png" alt="" width="150" height="115">
+      <p class="eyebrow">أهلًا وسهلًا بكم في</p>
+      <h1 class="welcome-title">برنامج «ضفاف العربية»</h1>
+      <p class="lead">برنامج تربوي ثقافي يحتفي بلغتنا العربية، لغة القرآن والهوية، عبر منافسات حماسية بين الفصول.</p>
+      <h2 class="goals-title">أهداف البرنامج</h2>
+      <ol class="goals">
+        <li><b>الاعتزاز بالعربية</b> وتعزيز انتماء الطلاب إلى لغتهم وهويتهم.</li>
+        <li><b>تنمية المهارات اللغوية</b> في النحو والصرف والبلاغة والإملاء والقراءة بأسلوب ممتع.</li>
+        <li><b>إثراء الذائقة الأدبية</b> والاطلاع على روائع الشعر والنثر العربي.</li>
+        <li><b>روح الفريق</b> والتنافس الشريف بين الفصول.</li>
+        <li><b>توظيف التقنية الحديثة</b> في خدمة تعلّم اللغة العربية.</li>
+      </ol>
+      <button id="continueBtn" class="btn btn-lg" type="button">متابعة إلى الصفحة الرئيسية</button>
+      <p class="hint">أو اضغط <kbd>Enter</kbd></p>
+    </div>
+  </section>
+
+  <!-- 3) main page -->
+  <div id="home" class="home" hidden>
+    <header class="home-head">
+      <a class="brand" href="/#home">
+        <img src="/static/img/logo-mark.png" alt="" width="60" height="46">
+        <span><b>ضفاف العربية</b><small>مدرسة يزيد بن حاتم الأزدي</small></span>
+      </a>
+      <nav class="home-nav" aria-label="روابط">
+        <a href="/about">عن البرنامج</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-text">
+          <span class="chip">للصفوف من التاسع إلى الثاني عشر</span>
+          <h1>على ضفاف العربية<br><span>نُبحر… ونتنافس</span></h1>
+          <p class="lead">مسابقات مباشرة بين الفصول في النحو والصرف، والبلاغة، والأدب، والإملاء، والقراءة. يجيب الطلاب من هواتفهم، وتظهر النتائج لحظة بلحظة على الشاشة الكبيرة.</p>
+          <blockquote class="verse">
+            <p>أنا البحرُ في أحشائه الدرُّ كامنٌ<br>فهل سألوا الغوّاصَ عن صدَفاتي</p>
+            <cite>حافظ إبراهيم</cite>
+          </blockquote>
+        </div>
+        <img class="hero-logo" src="/static/img/logo-full.png" alt="شعار مدرسة يزيد بن حاتم الأزدي" width="420" height="393">
+      </section>
+
+      <section class="portals" aria-label="الدخول">
+        <a class="portal portal-student" href="/play">
+          <span class="portal-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48"><rect x="13" y="4" width="22" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="24" cy="37" r="2.5" fill="currentColor"/><path d="M18 18l4 4 8-9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <b>الطالب</b>
+          <span>انضم إلى مسابقة فصلك من هاتفك</span>
+          <em>ادخل ←</em>
+        </a>
+        <a class="portal portal-display" href="/display">
+          <span class="portal-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48"><rect x="4" y="7" width="40" height="26" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><path d="M24 33v7M15 41h18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M12 25l7-7 6 5 9-9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <b>شاشة العرض</b>
+          <span>للعرض على جهاز الإسقاط أمام الجميع</span>
+          <em>افتح الشاشة ←</em>
+        </a>
+        <a class="portal portal-admin" href="/admin">
+          <span class="portal-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="7" fill="none" stroke="currentColor" stroke-width="3"/><path d="M24 4v6M24 38v6M4 24h6M38 24h6M9.9 9.9l4.2 4.2M33.9 33.9l4.2 4.2M9.9 38.1l4.2-4.2M33.9 14.1l4.2-4.2" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+          </span>
+          <b>لوحة التحكم</b>
+          <span>للمعلمين: الأسئلة والدوري والتحكم المباشر</span>
+          <em>دخول المعلم ←</em>
+        </a>
+      </section>
+
+      <section class="fields" aria-label="مجالات المسابقة">
+        <h2>مجالات المنافسة</h2>
+        <ul>
+          <li><b>النحو والصرف</b></li>
+          <li><b>البلاغة</b></li>
+          <li><b>الأدب</b></li>
+          <li><b>الإملاء</b></li>
+          <li><b>القراءة</b></li>
+        </ul>
+        <a class="btn btn-ghost" href="/about">تعرّف على البرنامج</a>
+      </section>
+    </main>
+
+    <footer class="home-foot">
+      <div class="waves" aria-hidden="true"><i></i><i></i><i></i></div>
+      <p>مدرسة يزيد بن حاتم الأزدي — برنامج ضفاف العربية</p>
+    </footer>
+  </div>
+
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/landing.js"></script>
+</body>
+</html>
